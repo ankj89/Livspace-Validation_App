@@ -13,14 +13,28 @@ header{background:#1e3d8f;color:white;padding:14px;font-size:18px}
 .card{background:white;padding:16px;margin-bottom:14px;border-radius:8px;border:1px solid #ddd}
 .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 @media(max-width:900px){.grid{grid-template-columns:1fr}}
-input,select,textarea{width:100%;padding:8px;border-radius:6px;border:1px solid #ccc}
-textarea{height:60px}
-.sectionHeader{background:#eef2ff;padding:8px;border-radius:6px;margin-top:14px;font-weight:bold}
-button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radius:6px;margin:4px;cursor:pointer}
+
+label{font-weight:600;font-size:13px}
+input,select,textarea{width:100%;padding:6px;border-radius:6px;border:1px solid #ccc}
+textarea{height:50px}
+
+button{padding:8px 12px;border:none;background:#1e3d8f;color:white;border-radius:6px;margin:4px;cursor:pointer}
+
 .roomTab{display:inline-block;padding:8px 12px;border:1px solid #ccc;margin:3px;border-radius:6px;cursor:pointer}
-.question{margin-bottom:12px}
-.wallBox{display:flex;gap:12px;margin:6px 0;flex-wrap:wrap}
-.wallBox label{display:flex;align-items:center;gap:4px;font-size:13px}
+
+.wallBox{display:flex;gap:12px;margin-top:6px}
+
+.accordion{cursor:pointer;background:#eef2ff;padding:10px;border-radius:6px;margin-top:10px}
+.accordionContent{display:none;padding-top:10px}
+
+.questionBlock{padding:8px;border-radius:6px;margin-bottom:8px}
+.statusAnswered{background:#e6f7e6}
+.statusPending{background:#ffe6e6}
+
+.progressBar{height:8px;background:#ddd;border-radius:4px;margin-top:6px}
+.progressFill{height:100%;background:#1e3d8f;border-radius:4px}
+
+.summaryBox{background:#f9fafc;padding:10px;border-radius:6px;margin-bottom:10px}
 </style>
 </head>
 
@@ -43,35 +57,53 @@ button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radiu
 </div>
 </div>
 
+<!-- ✅ SOCIETY SECTION FIXED -->
 <div class="card">
 <h3>Society Constraints</h3>
 <div class="grid">
+
+<div>
+<label>Service lift usage allowed?</label>
 <select id="serviceLiftUsage" onchange="saveData()">
-<option value="">Service lift usage allowed?</option>
+<option></option>
 <option>Heavy material movement allowed</option>
 <option>Heavy material movement Not allowed</option>
 </select>
+</div>
 
+<div>
+<label>Debris loading area</label>
 <select id="loadingArea" onchange="saveData()">
-<option value="">Debris loading area</option>
+<option></option>
 <option>Within 30 ft</option>
 <option>More than 30 ft</option>
 <option>Not present</option>
 </select>
+</div>
 
+<div>
+<label>Debris dumping allowed?</label>
 <select id="debrisDumping" onchange="saveData()">
-<option value="">Debris dumping allowed?</option>
+<option></option>
 <option>Yes</option>
 <option>No</option>
 </select>
+</div>
 
+<div>
+<label>Vehicle entry possible?</label>
 <select id="vehicleEntry" onchange="saveData()">
-<option value="">Vehicle entry possible?</option>
+<option></option>
 <option>Yes</option>
 <option>No</option>
 </select>
+</div>
 
-<textarea id="societyRestrictions" placeholder="Society Restrictions" onchange="saveData()"></textarea>
+<div style="grid-column: span 3;">
+<label>Society Restrictions</label>
+<textarea id="societyRestrictions" onchange="saveData()"></textarea>
+</div>
+
 </div>
 </div>
 
@@ -93,7 +125,7 @@ button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radiu
 
 const walls=["NW","EW","SW","WW"]
 
-const roomQuestions = ["Is there a requirement of PCC due to leveling issues/bare shell property?",
+const roomQuestions=["Is there a requirement of PCC due to leveling issues/bare shell property?",
 "Existing flooring in Good condition with with proper slope/levels?",
 "Can we do tile on tile installation?",
 "Is there sufficient height or clearance between the existing ceiling and any obstructions (such as beams, HVAC systems, or lighting fixtures) to accommodate the false ceiling installation?",
@@ -112,9 +144,8 @@ const roomQuestions = ["Is there a requirement of PCC due to leveling issues/bar
 "Do we need to provide damp proof treament on walls?",
 "Do we need to provide weather proof treatment on walls which are exposed to external atmosphere?",
 "Is there existing countertop present?",
-"Are there any issues with the existing false ceiling, such as damage, sagging, or instability, that require removal and replacement?"];
-
-const wallQuestions = ["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?",
+"Are there any issues with the existing false ceiling, such as damage, sagging, or instability, that require removal and replacement?"]
+const wallQuestions=["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?",
 "Is the wall dry wall/Gypsum wall?",
 "Are there major cracks that require structural repair?",
 "Does the existing wall surface have undulations or uneven surface, requiring leveling?",
@@ -127,7 +158,7 @@ const wallQuestions = ["Is the wall a load-bearing wall/Mivan Construction/Sheer
 "Is panelling/pelmet required to be done for AC installation?",
 "Are there any darker shade on the wall?",
 "Is the existing paint in good condition, without excessive peeling, flaking, or bubbling?",
-"Do we need to remove skirting for wardrobe installlation?"];
+"Do we need to remove skirting for wardrobe installlation?"]
 
 const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
 
@@ -135,85 +166,90 @@ let roomOrder=[...defaultRooms]
 
 let data=JSON.parse(localStorage.getItem("validatorData")||"{}")
 
-/* 🔧 DATA NORMALIZATION (CRITICAL FIX) */
 function normalizeData(){
-if(!data.project) data.project={}
-if(!data.constraints) data.constraints={}
-if(!data.rooms) data.rooms={}
-
+if(!data.rooms)data.rooms={}
 defaultRooms.forEach(r=>{
-if(!data.rooms[r]) data.rooms[r]={}
-if(!data.rooms[r].room) data.rooms[r].room={}
-if(!data.rooms[r].wall) data.rooms[r].wall={}
-if(!data.rooms[r].wallSel) data.rooms[r].wallSel={}
+if(!data.rooms[r])data.rooms[r]={room:{},wall:{},wallSel:{}}
 })
 }
-
 normalizeData()
 
 function saveData(){
-
-data.project={
-pid:document.getElementById("pid").value,
-cx:document.getElementById("cx").value,
-city:document.getElementById("city").value,
-address:document.getElementById("address").value,
-society:document.getElementById("society").value,
-flat:document.getElementById("flat").value,
-floorNo:document.getElementById("floorNo").value
-}
-
-data.constraints={
-serviceLiftUsage:document.getElementById("serviceLiftUsage").value,
-loadingArea:document.getElementById("loadingArea").value,
-debrisDumping:document.getElementById("debrisDumping").value,
-vehicleEntry:document.getElementById("vehicleEntry").value,
-societyRestrictions:document.getElementById("societyRestrictions").value
-}
-
+data.project={pid:pid.value,cx:cx.value,city:city.value,address:address.value,society:society.value,flat:flat.value,floorNo:floorNo.value}
+data.constraints={serviceLiftUsage:serviceLiftUsage.value,loadingArea:loadingArea.value,debrisDumping:debrisDumping.value,vehicleEntry:vehicleEntry.value,societyRestrictions:societyRestrictions.value}
 localStorage.setItem("validatorData",JSON.stringify(data))
 }
 
 function renderTabs(activeRoom){
-document.getElementById("roomTabs").innerHTML=
-roomOrder.map(r=>`
-<span class="roomTab" 
-style="${r===activeRoom?'background:#1e3d8f;color:white':''}"
-onclick="openRoom('${r}')">${r}</span>`).join("")
+roomTabs.innerHTML=roomOrder.map(r=>`<span class="roomTab" onclick="openRoom('${r}')">${r}</span>`).join("")
+}
+
+function scrollToNext(currentDiv){
+let all=document.querySelectorAll(".statusPending")
+for(let el of all){
+if(el.offsetTop>currentDiv.offsetTop){
+el.scrollIntoView({behavior:"smooth",block:"center"})
+break
+}
+}
+}
+
+function applyAllWalls(value, room){
+const r=data.rooms[room]
+wallQuestions.forEach(q=>{r.wall[q]=value})
+saveData()
+openRoom(room)
 }
 
 function openRoom(room){
 
-/* 🔧 HARDENED STRUCTURE */
-if(!data.rooms[room]) data.rooms[room]={}
-if(!data.rooms[room].room) data.rooms[room].room={}
-if(!data.rooms[room].wall) data.rooms[room].wall={}
-if(!data.rooms[room].wallSel) data.rooms[room].wallSel={}
-
 const r=data.rooms[room]
-
 renderTabs(room)
 
 const container=document.getElementById("roomForm")
 container.innerHTML=""
 
-let title=document.createElement("h3")
-title.textContent=room
-container.appendChild(title)
+let totalQ=roomQuestions.length+wallQuestions.length
+let answered=0
+wallQuestions.forEach(q=>{if(r.wall[q])answered++})
+roomQuestions.forEach(q=>{if(r.room[q])answered++})
 
-container.appendChild(sectionHeader("Wall Questions"))
+let percent=Math.round((answered/totalQ)*100)
 
+container.innerHTML+=`
+<h3>${room} (${percent}% complete)</h3>
+<div class="progressBar"><div class="progressFill" style="width:${percent}%"></div></div>
+<div class="summaryBox"><b>Summary:</b> ${answered}/${totalQ} answered</div>
+`
+
+function createAccordion(title){
+let acc=document.createElement("div")
+acc.className="accordion"
+acc.textContent=title
+let content=document.createElement("div")
+content.className="accordionContent"
+acc.onclick=()=>{content.style.display=content.style.display==="block"?"none":"block"}
+container.appendChild(acc)
+container.appendChild(content)
+return content
+}
+
+let wallSection=createAccordion("Wall Questions")
+
+wallSection.innerHTML+=`
+<button onclick="applyAllWalls('Yes','${room}')">Apply Yes to All</button>
+<button onclick="applyAllWalls('No','${room}')">Apply No to All</button>
+`
+
+/* ✅ WALL UI UPDATED */
 wallQuestions.forEach(q=>{
 let div=document.createElement("div")
-div.className="question"
+div.className="questionBlock "+(r.wall[q]?"statusAnswered":"statusPending")
 
 let label=document.createElement("label")
 label.textContent=q
 
-let select=createYesNo(r.wall[q], val=>{
-r.wall[q]=val
-saveData()
-})
+let select=createYesNo(r.wall[q])
 
 let wallBox=document.createElement("div")
 wallBox.className="wallBox"
@@ -242,108 +278,79 @@ lbl.append(w)
 wallBox.appendChild(lbl)
 })
 
-let textarea=createTextarea(r.wall[q+"-c"], val=>{
-r.wall[q+"-c"]=val
+let textarea=createTextarea(r.wall[q+"-c"])
+
+select.onchange=()=>{
+r.wall[q]=select.value
 saveData()
-})
+div.className="questionBlock "+(select.value?"statusAnswered":"statusPending")
+textarea.style.display=select.value==="No"?"none":"block"
+scrollToNext(div)
+}
 
 div.append(label,select,wallBox,textarea)
-container.appendChild(div)
+wallSection.appendChild(div)
 })
 
-container.appendChild(sectionHeader("Room Questions"))
+let roomSection=createAccordion("Room Questions")
 
 roomQuestions.forEach(q=>{
 let div=document.createElement("div")
+div.className="questionBlock "+(r.room[q]?"statusAnswered":"statusPending")
 
 let label=document.createElement("label")
 label.textContent=q
 
-let select=createYesNo(r.room[q], val=>{
-r.room[q]=val
-saveData()
-})
+let select=createYesNo(r.room[q])
+let textarea=createTextarea(r.room[q+"-c"])
 
-let textarea=createTextarea(r.room[q+"-c"], val=>{
-r.room[q+"-c"]=val
+select.onchange=()=>{
+r.room[q]=select.value
 saveData()
-})
+div.className="questionBlock "+(select.value?"statusAnswered":"statusPending")
+textarea.style.display=select.value==="No"?"none":"block"
+scrollToNext(div)
+}
 
 div.append(label,select,textarea)
-container.appendChild(div)
+roomSection.appendChild(div)
 })
 
 }
 
-function sectionHeader(text){
-let el=document.createElement("div")
-el.className="sectionHeader"
-el.textContent=text
-return el
-}
-
-function createYesNo(value,onchange){
+function createYesNo(value){
 let select=document.createElement("select")
 select.innerHTML="<option></option><option>Yes</option><option>No</option>"
 select.value=value||""
-select.onchange=()=>onchange(select.value)
 return select
 }
 
-function createTextarea(value,onchange){
+function createTextarea(value){
 let t=document.createElement("textarea")
 t.value=value||""
-t.onchange=()=>onchange(t.value)
 return t
 }
 
 function generateExcel(){
-
-// Ensure latest values are saved before export
 saveData()
-
 let rows=[]
-
 Object.keys(data.rooms).forEach(room=>{
 let r=data.rooms[room]
-
 Object.entries(r.wall).forEach(([k,v])=>{
 if(k.endsWith("-c")) return
-
-rows.push({
-...data.project,
-...data.constraints,
-Room:room,
-Section:"Wall",
-Item:k,
-Value:v,
-Walls:(r.wallSel[k]||[]).join(","),
-Comments:r.wall[k+"-c"]||""
+rows.push({...data.project,...data.constraints,Room:room,Section:"Wall",Item:k,Value:v,Walls:(r.wallSel[k]||[]).join(","),Comments:r.wall[k+"-c"]||""})
 })
-})
-
 Object.entries(r.room).forEach(([k,v])=>{
 if(k.endsWith("-c")) return
-
-rows.push({
-...data.project,
-...data.constraints,
-Room:room,
-Section:"Room",
-Item:k,
-Value:v,
-Comments:r.room[k+"-c"]||""
+rows.push({...data.project,...data.constraints,Room:room,Section:"Room",Item:k,Value:v,Comments:r.room[k+"-c"]||""})
 })
 })
-
-})
-
 let wb=XLSX.utils.book_new()
 let ws=XLSX.utils.json_to_sheet(rows)
-
 XLSX.utils.book_append_sheet(wb,ws,"Validation Data")
 XLSX.writeFile(wb,"site_validation.xlsx")
 }
+
 function addRoom(){
 let name=prompt("Room name")
 if(!name)return
@@ -357,9 +364,7 @@ localStorage.clear()
 location.reload()
 }
 
-/* INIT */
-document.addEventListener("DOMContentLoaded", function(){
-normalizeData()
+document.addEventListener("DOMContentLoaded",()=>{
 renderTabs(defaultRooms[0])
 openRoom(defaultRooms[0])
 })
