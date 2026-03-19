@@ -21,6 +21,16 @@ button{padding:10px 16px;border:none;background:#1e3d8f;color:white;border-radiu
 .question{margin-bottom:12px}
 .wallBox{display:flex;gap:12px;margin:6px 0;flex-wrap:wrap}
 .wallBox label{display:flex;align-items:center;gap:4px;font-size:13px}
+.accordion{cursor:pointer;background:#eef2ff;padding:10px;border-radius:6px;margin-top:10px}
+.accordionContent{display:none;padding-top:10px}
+.questionRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.questionRow label{flex:2}
+.questionRow select{flex:0.5}
+.statusAnswered{background:#e6f7e6}
+.statusPending{background:#ffe6e6}
+.progressBar{height:8px;background:#ddd;border-radius:4px;margin-top:6px}
+.progressFill{height:100%;background:#1e3d8f;border-radius:4px}
+.summaryBox{background:#f9fafc;padding:10px;border-radius:6px;margin-bottom:10px}
 </style>
 </head>
 
@@ -184,7 +194,6 @@ onclick="openRoom('${r}')">${r}</span>`).join("")
 
 function openRoom(room){
 
-/* 🔧 HARDENED STRUCTURE */
 if(!data.rooms[room]) data.rooms[room]={}
 if(!data.rooms[room].room) data.rooms[room].room={}
 if(!data.rooms[room].wall) data.rooms[room].wall={}
@@ -197,15 +206,51 @@ renderTabs(room)
 const container=document.getElementById("roomForm")
 container.innerHTML=""
 
-let title=document.createElement("h3")
-title.textContent=room
-container.appendChild(title)
+/* 🔹 PROGRESS CALC */
+let totalQ = roomQuestions.length + wallQuestions.length
+let answered = 0
 
-container.appendChild(sectionHeader("Wall Questions"))
+wallQuestions.forEach(q=>{ if(r.wall[q]) answered++ })
+roomQuestions.forEach(q=>{ if(r.room[q]) answered++ })
+
+let percent = Math.round((answered/totalQ)*100)
+
+/* 🔹 HEADER + PROGRESS */
+container.innerHTML += `
+<h3>${room} (${percent}% complete)</h3>
+<div class="progressBar"><div class="progressFill" style="width:${percent}%"></div></div>
+
+<div class="summaryBox">
+<b>Summary:</b> ${answered}/${totalQ} answered
+</div>
+`
+
+/* 🔹 ACCORDION BUILDER */
+function createAccordion(title){
+let acc=document.createElement("div")
+acc.className="accordion"
+acc.textContent=title
+
+let content=document.createElement("div")
+content.className="accordionContent"
+
+acc.onclick=()=>{content.style.display = content.style.display==="block"?"none":"block"}
+
+container.appendChild(acc)
+container.appendChild(content)
+
+return content
+}
+
+/* 🔹 WALL SECTION */
+let wallSection=createAccordion("Wall Questions")
 
 wallQuestions.forEach(q=>{
 let div=document.createElement("div")
-div.className="question"
+div.className="questionRow"
+
+let statusClass = r.wall[q] ? "statusAnswered" : "statusPending"
+div.classList.add(statusClass)
 
 let label=document.createElement("label")
 label.textContent=q
@@ -213,13 +258,13 @@ label.textContent=q
 let select=createYesNo(r.wall[q], val=>{
 r.wall[q]=val
 saveData()
+openRoom(room)
 })
 
 let wallBox=document.createElement("div")
 wallBox.className="wallBox"
 
 walls.forEach(w=>{
-let lbl=document.createElement("label")
 let cb=document.createElement("input")
 cb.type="checkbox"
 
@@ -236,10 +281,8 @@ arr=arr.filter(x=>x!==w)
 r.wallSel[q]=arr
 saveData()
 }
-
-lbl.appendChild(cb)
-lbl.append(w)
-wallBox.appendChild(lbl)
+wallBox.appendChild(cb)
+wallBox.append(w)
 })
 
 let textarea=createTextarea(r.wall[q+"-c"], val=>{
@@ -247,14 +290,28 @@ r.wall[q+"-c"]=val
 saveData()
 })
 
+/* 🔹 SMART LOGIC */
+if(select.value==="No") textarea.style.display="none"
+
+select.onchange=()=>{
+r.wall[q]=select.value
+saveData()
+openRoom(room)
+}
+
 div.append(label,select,wallBox,textarea)
-container.appendChild(div)
+wallSection.appendChild(div)
 })
 
-container.appendChild(sectionHeader("Room Questions"))
+/* 🔹 ROOM SECTION */
+let roomSection=createAccordion("Room Questions")
 
 roomQuestions.forEach(q=>{
 let div=document.createElement("div")
+div.className="questionRow"
+
+let statusClass = r.room[q] ? "statusAnswered" : "statusPending"
+div.classList.add(statusClass)
 
 let label=document.createElement("label")
 label.textContent=q
@@ -262,6 +319,7 @@ label.textContent=q
 let select=createYesNo(r.room[q], val=>{
 r.room[q]=val
 saveData()
+openRoom(room)
 })
 
 let textarea=createTextarea(r.room[q+"-c"], val=>{
@@ -269,8 +327,16 @@ r.room[q+"-c"]=val
 saveData()
 })
 
+if(select.value==="No") textarea.style.display="none"
+
+select.onchange=()=>{
+r.room[q]=select.value
+saveData()
+openRoom(room)
+}
+
 div.append(label,select,textarea)
-container.appendChild(div)
+roomSection.appendChild(div)
 })
 
 }
