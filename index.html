@@ -368,7 +368,7 @@ scrollToNext(div)
 let textarea=document.createElement("textarea")
 textarea.value=r.room[q+"-c"]||""
 
-textarea.oniput=()=>{
+textarea.oninput=()=>{
 r.room[q+"-c"]=textarea.value
 saveData()
 }
@@ -653,9 +653,13 @@ window.close()
 `)
 }
 function saveAnnotated(room, surface, index, dataURL){
-data.rooms[room].photos[surface][index]=dataURL
+
+data.rooms[room].photos[surface][index] = dataURL
 saveData()
-openRoom(room)
+
+// 🔥 Only refresh photo section (no full re-render)
+refreshPhotoSection(room)
+
 }
   
   function goToNextRoom(currentRoom){
@@ -710,6 +714,67 @@ div.append(label,input)
 container.appendChild(div)
 
 })
+
+}
+ 
+function refreshPhotoSection(room){
+
+let r = data.rooms[room]
+
+// 🔥 STEP 1: Get photo section
+let photoSection = document.querySelector("[data-section='photo']")
+
+// ❗ Important: capture state BEFORE clearing
+let wasOpen = photoSection && photoSection.style.display === "block"
+
+if(!photoSection) return
+
+// 🔥 STEP 2: clear content
+photoSection.innerHTML = ""
+
+const surfaces = ["NW","EW","SW","WW","Ceiling","Floor"]
+
+surfaces.forEach(surface=>{
+
+let block=document.createElement("div")
+block.className="questionBlock"
+
+let title=document.createElement("label")
+title.innerText=surface
+block.appendChild(title)
+
+let btn=document.createElement("button")
+btn.innerText="Add Photo"
+btn.onclick=()=>openCamera(surface, room)
+block.appendChild(btn)
+
+let list=document.createElement("div")
+list.style.display="flex"
+list.style.flexWrap="wrap"
+list.style.gap="8px"
+
+let photos = r.photos[surface] || []
+
+photos.forEach((p,idx)=>{
+let img=document.createElement("img")
+img.src=p
+img.style.width="80px"
+img.style.cursor="pointer"
+
+img.onclick=()=>openEditor(surface, room, idx)
+
+list.appendChild(img)
+})
+
+block.appendChild(list)
+photoSection.appendChild(block)
+
+})
+
+// 🔥 STEP 3: restore open state
+if(wasOpen){
+photoSection.style.display = "block"
+}
 
 }
 function resetData(){
