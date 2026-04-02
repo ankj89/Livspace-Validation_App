@@ -285,7 +285,11 @@ acc.className="accordion"
 acc.textContent=title
 let content=document.createElement("div")
 content.className="accordionContent"
-acc.onclick=()=>{content.style.display=content.style.display==="block"?"none":"block"}
+let isOpen = false
+acc.onclick=()=>{
+isOpen = !isOpen
+content.style.display = isOpen ? "block" : "none"
+}
 container.appendChild(acc)
 container.appendChild(content)
 return content
@@ -404,23 +408,6 @@ return div
 measurementFields.forEach(f=>{
 measureSection.appendChild(createInput(f.label,f.key))
 })
-/* ✅ NEXT ROOM BUTTON (CORRECT PLACE) */
-let index = roomOrder.indexOf(room)
-
-let nextBtn=document.createElement("button")
-
-if(index === roomOrder.length - 1){
-nextBtn.innerText="Finish ✔"
-}else{
-nextBtn.innerText=`Next: ${roomOrder[index+1]} →`
-}
-
-nextBtn.style.marginTop="10px"
-
-nextBtn.onclick=()=>goToNextRoom(room)
-
-container.appendChild(nextBtn)
-
 /* 🔥 PHOTO SECTION (ADVANCED) */
 let photoSection=createAccordion("Site Photographs")
 
@@ -463,7 +450,25 @@ list.appendChild(img)
 block.appendChild(list)
 photoSection.appendChild(block)
 
-})
+})  
+/* ✅ NEXT ROOM BUTTON (CORRECT PLACE) */
+let index = roomOrder.indexOf(room)
+
+let nextBtn=document.createElement("button")
+
+if(index === roomOrder.length - 1){
+nextBtn.innerText="Finish ✔"
+}else{
+nextBtn.innerText=`Next: ${roomOrder[index+1]} →`
+}
+
+nextBtn.style.marginTop="10px"
+
+nextBtn.onclick=()=>goToNextRoom(room)
+
+container.appendChild(nextBtn)
+
+
   
 }
 
@@ -555,7 +560,8 @@ let compressed=canvas.toDataURL("image/jpeg",0.6)
 data.rooms[room].photos[surface].push(compressed)
 
 saveData()
-openRoom(room)
+let activeRoom = room
+setTimeout(()=>openRoom(activeRoom), 0)
 
 }
 }
@@ -579,6 +585,7 @@ let win = window.open()
 win.document.write(`
 <html>
 <body style="margin:0">
+
 <canvas id="c"></canvas>
 
 <div style="position:fixed;top:10px;left:10px;">
@@ -594,8 +601,8 @@ let ctx=canvas.getContext("2d")
 let img=new Image()
 img.src="${imgSrc}"
 
-let mode="draw"
 let drawing=false
+let mode="draw"
 
 img.onload=function(){
 canvas.width=img.width
@@ -603,31 +610,37 @@ canvas.height=img.height
 ctx.drawImage(img,0,0)
 }
 
-canvas.onmousedown=()=>drawing=true
-canvas.onmouseup=()=>drawing=false
-
-canvas.onmousemove=(e)=>{
-if(mode==="draw" && drawing){
-ctx.lineWidth=3
-ctx.strokeStyle="red"
-ctx.lineTo(e.offsetX,e.offsetY)
-ctx.stroke()
+/* 🔥 FIXED DRAW LOGIC */
+canvas.onmousedown=(e)=>{
+drawing=true
 ctx.beginPath()
 ctx.moveTo(e.offsetX,e.offsetY)
 }
+
+canvas.onmouseup=()=>drawing=false
+
+canvas.onmousemove=(e)=>{
+if(drawing && mode==="draw"){
+ctx.lineTo(e.offsetX,e.offsetY)
+ctx.strokeStyle="red"
+ctx.lineWidth=3
+ctx.stroke()
+}
 }
 
+/* TEXT */
 canvas.onclick=(e)=>{
 if(mode==="text"){
 let txt=prompt("Enter note")
 if(txt){
 ctx.fillStyle="red"
-ctx.font="16px Arial"
+ctx.font="18px Arial"
 ctx.fillText(txt,e.offsetX,e.offsetY)
 }
 }
 }
 
+/* SAVE */
 function save(){
 let data=canvas.toDataURL("image/jpeg",0.7)
 window.opener.saveAnnotated("${room}","${surface}",${index},data)
