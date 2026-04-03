@@ -285,7 +285,14 @@ acc.className="accordion"
 acc.textContent=title
 let content=document.createElement("div")
 content.className="accordionContent"
-let isOpen = false
+let isOpen = data.uiState?.[title] || false
+
+acc.onclick=()=>{
+isOpen = !isOpen
+if(!data.uiState) data.uiState={}
+data.uiState[title] = isOpen
+content.style.display = isOpen ? "block" : "none"
+}
 acc.onclick=()=>{
 isOpen = !isOpen
 content.style.display = isOpen ? "block" : "none"
@@ -396,7 +403,7 @@ input.placeholder="mm"
 input.value=m[key] || ""
 
 input.onchange=()=>{
-m[key]=input.value
+m[key]=parseFloat(input.value) || ""
 saveData()
 }
 
@@ -412,46 +419,7 @@ measureSection.appendChild(createInput(f.label,f.key))
 let photoSection=createAccordion("Site Photographs")
 photoSection.setAttribute("data-section","photo")
 
-const surfaces = ["NW","EW","SW","WW","Ceiling","Floor"]
-
-surfaces.forEach(surface=>{
-
-let block=document.createElement("div")
-block.className="questionBlock"
-
-let title=document.createElement("label")
-title.innerText=surface
-block.appendChild(title)
-
-/* ADD BUTTON */
-let btn=document.createElement("button")
-btn.innerText="Add Photo"
-btn.onclick=()=>openCamera(surface, room)
-block.appendChild(btn)
-
-/* IMAGE LIST */
-let list=document.createElement("div")
-list.style.display="flex"
-list.style.flexWrap="wrap"
-list.style.gap="8px"
-
-let photos = r.photos[surface] || []
-
-photos.forEach((p,idx)=>{
-let img=document.createElement("img")
-img.src=p
-img.style.width="80px"
-img.style.cursor="pointer"
-
-img.onclick=()=>openEditorDirect(p, surface, room)
-
-list.appendChild(img)
-})
-
-block.appendChild(list)
-photoSection.appendChild(block)
-
-})  
+refreshPhotoSection(room) 
 /* ✅ NEXT ROOM BUTTON (CORRECT PLACE) */
 let index = roomOrder.indexOf(room)
 
@@ -555,7 +523,11 @@ canvas.height = img.height * scale
 
 ctx.drawImage(img,0,0,canvas.width,canvas.height)
 
-let compressed = canvas.toDataURL("image/jpeg",0.6)
+let quality = 0.6
+if(file.size > 2 * 1024 * 1024) quality = 0.4
+if(file.size > 5 * 1024 * 1024) quality = 0.3
+
+let compressed = canvas.toDataURL("image/jpeg", quality)
 
 /* 🔥 DIRECTLY OPEN EDITOR — DO NOT SAVE FIRST */
 openEditorDirect(compressed, surface, room)
@@ -567,8 +539,13 @@ reader.readAsDataURL(file)
 }
   
 function openEditorDirect(imgSrc, surface, room){
-
-/* 🔒 LOCK PAGE SCROLL */
+if(document.getElementById("editorCanvas")){
+return
+}
+window.addEventListener("load", ()=>{
+document.body.style.overflow = "auto"
+})
+  /* 🔒 LOCK PAGE SCROLL */
 document.body.style.overflow = "hidden"
 
 let overlay = document.createElement("div")
@@ -618,7 +595,11 @@ let img = new Image()
 img.src = imgSrc
 
 img.onload = () => {
-
+img.onerror = ()=>{
+alert("Image failed to load")
+document.body.style.overflow = "auto"
+document.body.removeChild(overlay)
+}
 /* 🔥 SIMPLE + CORRECT SIZE (NO DPR CONFUSION) */
 canvas.width = img.width
 canvas.height = img.height
@@ -662,8 +643,9 @@ ctx.beginPath()
 ctx.moveTo(p.x, p.y)
 })
 
-canvas.addEventListener("pointerup", ()=>{
+canvas.addEventListener("pointerup", (e)=>{
 drawing = false
+try{ canvas.releasePointerCapture(e.pointerId) }catch(err){}
 })
 
 canvas.addEventListener("pointercancel", ()=>{
@@ -864,7 +846,9 @@ del.style.padding="2px 5px"
 del.style.borderRadius="0 6px 0 6px"
 
 /* DELETE ACTION */
-del.onclick=()=>{
+del.onclick=(e)=>{
+e.stopPropagation()
+
 if(confirm("Delete this photo?")){
 data.rooms[room].photos[surface].splice(idx,1)
 saveData()
