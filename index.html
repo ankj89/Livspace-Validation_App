@@ -179,6 +179,29 @@ const wallQuestions=["Is the wall a load-bearing wall/Mivan Construction/Sheer w
 
 const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
 
+let db
+
+function initDB(){
+return new Promise((resolve, reject)=>{
+let request = indexedDB.open("SiteValidatorDB", 1)
+
+request.onupgradeneeded = function(e){
+db = e.target.result
+
+if(!db.objectStoreNames.contains("photos")){
+db.createObjectStore("photos", { keyPath: "id" })
+}
+}
+
+request.onsuccess = function(e){
+db = e.target.result
+resolve()
+}
+
+request.onerror = reject
+})
+}  
+  
 let roomOrder=[...defaultRooms]
 let data=JSON.parse(localStorage.getItem("validatorData")||"{}")
 
@@ -441,6 +464,34 @@ container.appendChild(nextBtn)
   
 }
 
+function savePhotoToDB(id, dataURL){
+return new Promise((resolve, reject)=>{
+let tx = db.transaction(["photos"], "readwrite")
+let store = tx.objectStore("photos")
+
+store.put({ id, data: dataURL })
+
+tx.oncomplete = ()=>resolve()
+tx.onerror = reject
+})
+}
+function getPhotoFromDB(id){
+return new Promise((resolve, reject)=>{
+let tx = db.transaction(["photos"], "readonly")
+let store = tx.objectStore("photos")
+
+let req = store.get(id)
+
+req.onsuccess = ()=>resolve(req.result?.data)
+req.onerror = reject
+})
+}  
+function deletePhotoFromDB(id){
+let tx = db.transaction(["photos"], "readwrite")
+let store = tx.objectStore("photos")
+store.delete(id)
+}
+  
 function generateExcel(){
 saveData()
 let rows=[]
@@ -538,7 +589,7 @@ openEditorDirect(compressed, surface, room)
 reader.readAsDataURL(file)
 }
   
-function openEditorDirect(imgSrc, surface, room){
+async function openEditorDirect(imgSrc, surface, room){
 if(document.getElementById("editorCanvas")){
 return
 }
@@ -670,7 +721,11 @@ overlay.querySelector("#saveBtn").onclick = () => {
 
 let finalImg = canvas.toDataURL("image/jpeg", 0.7)
 
-data.rooms[room].photos[surface].push(finalImg)
+let id = "img_" + Date.now()
+
+await savePhotoToDB(id, finalImg)
+
+data.rooms[room].photos[surface].push(id)
 
 saveData()
 refreshPhotoSection(room)
@@ -826,7 +881,9 @@ wrapper.style.display = "inline-block"
 
 /* IMAGE */
 let img=document.createElement("img")
-img.src = photo
+getPhotoFromDB(photo).then(src=>{
+img.src = src
+})
 img.style.width="80px"
 img.style.cursor="pointer"
 
@@ -850,7 +907,13 @@ del.onclick=(e)=>{
 e.stopPropagation()
 
 if(confirm("Delete this photo?")){
+
+let id = data.rooms[room].photos[surface][idx]
+
+deletePhotoFromDB(id)
+
 data.rooms[room].photos[surface].splice(idx,1)
+
 saveData()
 refreshPhotoSection(room)
 }
@@ -877,7 +940,10 @@ localStorage.clear()
 location.reload()
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async ()=>{
+
+await initDB()
+
 renderTabs(defaultRooms[0])
 openRoom(defaultRooms[0])
 renderSociety()
