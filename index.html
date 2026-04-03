@@ -602,7 +602,17 @@ canvas.style.touchAction = "none"
 /* STATE */
 let mode = "draw"
 let drawing = false
+function getCoords(e){
+const rect = canvas.getBoundingClientRect()
 
+const scaleX = canvas.width / rect.width
+const scaleY = canvas.height / rect.height
+
+return {
+x: (e.clientX - rect.left) * scaleX,
+y: (e.clientY - rect.top) * scaleY
+}
+}
 /* LOAD IMAGE */
 let img = new Image()
 img.src = imgSrc
@@ -631,7 +641,8 @@ drawing = true
 canvas.setPointerCapture(e.pointerId)
 
 ctx.beginPath()
-ctx.moveTo(e.offsetX, e.offsetY)
+let p = getCoords(e)
+ctx.moveTo(p.x, p.y)
 })
 
 canvas.addEventListener("pointermove", (e)=>{
@@ -642,11 +653,13 @@ ctx.lineJoin = "round"
 ctx.strokeStyle = "red"
 ctx.lineWidth = 3
 
-ctx.lineTo(e.offsetX, e.offsetY)
+let p = getCoords(e)
+ctx.lineTo(p.x, p.y)
 ctx.stroke()
 
 ctx.beginPath()
-ctx.moveTo(e.offsetX, e.offsetY)
+let p = getCoords(e)
+ctx.moveTo(p.x, p.y)
 })
 
 canvas.addEventListener("pointerup", ()=>{
@@ -664,7 +677,8 @@ let txt = prompt("Enter note")
 if(txt){
 ctx.fillStyle = "red"
 ctx.font = "18px Arial"
-ctx.fillText(txt, e.offsetX, e.offsetY)
+let p = getCoords(e)
+ctx.fillText(txt, p.x, p.y)
 }
 }
 })
@@ -803,6 +817,14 @@ list.style.gap="8px"
 let photos = r.photos[surface] || []
 
 photos.forEach((p,idx)=>{
+photos.forEach((p,idx)=>{
+
+/* WRAPPER */
+let wrapper = document.createElement("div")
+wrapper.style.position = "relative"
+wrapper.style.display = "inline-block"
+
+/* IMAGE */
 let img=document.createElement("img")
 img.src=p
 img.style.width="80px"
@@ -810,7 +832,33 @@ img.style.cursor="pointer"
 
 img.onclick=()=>openEditorDirect(p, surface, room)
 
-list.appendChild(img)
+/* DELETE BUTTON */
+let del=document.createElement("div")
+del.innerText="✕"
+del.style.position="absolute"
+del.style.top="0"
+del.style.right="0"
+del.style.background="red"
+del.style.color="white"
+del.style.cursor="pointer"
+del.style.fontSize="12px"
+del.style.padding="2px 5px"
+del.style.borderRadius="0 6px 0 6px"
+
+/* DELETE ACTION */
+del.onclick=()=>{
+if(confirm("Delete this photo?")){
+data.rooms[room].photos[surface].splice(idx,1)
+saveData()
+refreshPhotoSection(room)
+}
+}
+
+/* APPEND */
+wrapper.appendChild(img)
+wrapper.appendChild(del)
+
+list.appendChild(wrapper)
 })
 
 block.appendChild(list)
