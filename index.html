@@ -535,29 +535,29 @@ input.click()
 
 function processImage(file, surface, room){
 
-let reader=new FileReader()
+let reader = new FileReader()
 
-reader.onload=function(e){
+reader.onload = function(e){
 
-let img=new Image()
-img.src=e.target.result
+let img = new Image()
+img.src = e.target.result
 
-img.onload=function(){
+img.onload = function(){
 
-let canvas=document.createElement("canvas")
-let ctx=canvas.getContext("2d")
+let canvas = document.createElement("canvas")
+let ctx = canvas.getContext("2d")
 
-let maxWidth=800
-let scale=maxWidth/img.width
+let maxWidth = img.width   // 🔥 keep original size
+let scale = 1
 
-canvas.width=maxWidth
-canvas.height=img.height*scale
+canvas.width = maxWidth
+canvas.height = img.height * scale
 
 ctx.drawImage(img,0,0,canvas.width,canvas.height)
 
-let compressed=canvas.toDataURL("image/jpeg",0.6)
+let compressed = canvas.toDataURL("image/jpeg",0.6)
 
-/* STORE */
+/* 🔥 DIRECTLY OPEN EDITOR — DO NOT SAVE FIRST */
 openEditorDirect(compressed, surface, room)
 
 }
@@ -565,7 +565,8 @@ openEditorDirect(compressed, surface, room)
 
 reader.readAsDataURL(file)
 }
-  function openEditorDirect(imgSrc, surface, room){
+  
+function openEditorDirect(imgSrc, surface, room){
 
 let overlay=document.createElement("div")
 overlay.style.position="fixed"
@@ -595,16 +596,33 @@ let ctx=canvas.getContext("2d")
 let img=new Image()
 img.src=imgSrc
 
-let drawing=false
-let mode="draw"
+let drawing = false
 
-img.onload=()=>{
-canvas.width=img.width
-canvas.height=img.height
-canvas.style.position="absolute"
-canvas.style.top="0"
-canvas.style.left="0"
-ctx.drawImage(img,0,0)
+canvas.onmousedown = (e)=>{
+if(mode !== "draw") return
+
+drawing = true
+ctx.beginPath()
+ctx.moveTo(e.offsetX, e.offsetY)
+}
+canvas.style.width = "100%"
+canvas.style.height = "auto"
+canvas.onmouseup = ()=> drawing = false
+canvas.onmouseleave = ()=> drawing = false
+
+canvas.onmousemove = (e)=>{
+if(!drawing || mode !== "draw") return
+
+ctx.lineCap = "round"
+ctx.lineJoin = "round"
+ctx.strokeStyle = "red"
+ctx.lineWidth = 3
+
+ctx.lineTo(e.offsetX, e.offsetY)
+ctx.stroke()
+
+ctx.beginPath()
+ctx.moveTo(e.offsetX, e.offsetY)
 }
 
 /* BUTTONS */
@@ -642,13 +660,13 @@ ctx.moveTo(e.offsetX,e.offsetY)
 }
 
 /* TEXT */
-canvas.onclick=(e)=>{
-if(mode==="text"){
-let txt=prompt("Enter note")
+canvas.ondblclick = (e)=>{
+if(mode === "text"){
+let txt = prompt("Enter note")
 if(txt){
-ctx.fillStyle="red"
-ctx.font="18px Arial"
-ctx.fillText(txt,e.offsetX,e.offsetY)
+ctx.fillStyle = "red"
+ctx.font = "18px Arial"
+ctx.fillText(txt, e.offsetX, e.offsetY)
 }
 }
 }
@@ -665,6 +683,7 @@ refreshPhotoSection(room)
 document.body.removeChild(overlay)
 }
 }
+  
 function addRoom(){
 let name=prompt("Room name")
 if(!name)return
@@ -672,109 +691,7 @@ roomOrder.push(name)
 data.rooms[name]={room:{},wall:{},wallSel:{},measurement:{}}
 renderTabs(name)
 }
-function openEditor(surface, room, index){
 
-let imgSrc = data.rooms[room].photos[surface][index]
-
-let win = window.open("", "_blank")
-
-if(!win){
-alert("Popup blocked. Please allow popups.")
-return
-}
-
-win.document.write(`
-<html>
-<body style="margin:0">
-
-<canvas id="c"></canvas>
-
-<div style="position:fixed;top:10px;left:10px;">
-<button onclick="mode='draw'">Draw</button>
-<button onclick="mode='text'">Text</button>
-<button onclick="save()">Save</button>
-</div>
-
-<script>
-let canvas=document.getElementById("c")
-let ctx=canvas.getContext("2d")
-
-let img=new Image()
-img.src="${imgSrc}"
-
-let drawing=false
-let mode="draw"
-
-/* LOAD IMAGE */
-img.onload=function(){
-canvas.width=img.width
-canvas.height=img.height
-ctx.drawImage(img,0,0)
-}
-
-img.onerror=function(){
-alert("Image failed to load")
-}
-
-/* DRAW */
-canvas.onmousedown=(e)=>{
-drawing=true
-ctx.beginPath()
-ctx.moveTo(e.offsetX,e.offsetY)
-}
-
-canvas.onmouseup=()=>drawing=false
-canvas.onmouseleave=()=>drawing=false
-
-canvas.onmousemove=(e)=>{
-if(!drawing || mode!=="draw") return
-
-ctx.lineCap="round"
-ctx.lineJoin="round"
-ctx.strokeStyle="red"
-ctx.lineWidth=3
-
-ctx.lineTo(e.offsetX,e.offsetY)
-ctx.stroke()
-
-ctx.beginPath()
-ctx.moveTo(e.offsetX,e.offsetY)
-}
-
-/* TEXT (SAFE — NO CONFLICT WITH DRAW) */
-canvas.ondblclick=(e)=>{
-if(mode==="text"){
-let txt=prompt("Enter note")
-if(txt){
-ctx.fillStyle="red"
-ctx.font="18px Arial"
-ctx.fillText(txt,e.offsetX,e.offsetY)
-}
-}
-}
-
-/* SAVE (FIXED METHOD) */
-function save(){
-let data=canvas.toDataURL("image/jpeg",0.7)
-
-if(window.opener){
-window.opener.postMessage({
-type:"ANNOTATION_SAVE",
-room:"${room}",
-surface:"${surface}",
-index:${index},
-data:data
-},"*")
-}
-
-window.close()
-}
-<\/script>
-
-</body>
-</html>
-`)
-}
 function saveAnnotated(room, surface, index, dataURL){
 
 data.rooms[room].photos[surface][index] = dataURL
