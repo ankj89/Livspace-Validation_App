@@ -615,14 +615,18 @@ overlay.innerHTML = `
 `
 
 document.body.appendChild(overlay)
+let canvas = overlay.querySelector("#editorCanvas")
+let ctx = canvas.getContext("2d")
+
+canvas.style.touchAction = "none"
+  /* CLOSE */
+overlay.querySelector("#closeBtn").onclick = () => {
+document.body.style.overflow = "auto"
+document.body.removeChild(overlay)
+}
+  
 /* SAVE */
 overlay.querySelector("#saveBtn").onclick = async () => {
-
-
-  
-let canvas = overlay.querySelector("#editorCanvas")
-canvas.style.touchAction = "none"
-let ctx = canvas.getContext("2d")
 
 try{
 
@@ -642,6 +646,8 @@ refreshPhotoSection(room)
 console.error(err)
 alert("Error saving image")
 }
+document.body.style.overflow = "auto"
+document.body.removeChild(overlay) 
 }
 /* 🔥 CRITICAL: STOP SCROLL + ZOOM */
 
@@ -666,7 +672,6 @@ img.src = imgSrc
 
 img.onerror = ()=>{
 alert("Image failed to load")
-document.body.style.overflow = "auto"
 document.body.removeChild(overlay)
 }
 
@@ -736,16 +741,9 @@ ctx.fillText(txt, p.x, p.y)
 })
 
 
-/* 🔓 RESTORE SCROLL */
-document.body.style.overflow = "auto"
-
 }
 
-/* CLOSE */
-overlay.querySelector("#closeBtn").onclick = () => {
-document.body.style.overflow = "auto"
-document.body.removeChild(overlay)
-}
+
 
 function addRoom(){
 let name=prompt("Room name")
