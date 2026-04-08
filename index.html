@@ -91,17 +91,31 @@ button{padding:8px 12px;border:none;background:#1e3d8f;color:white;border-radius
 
 <script>
 const societyQuestions = [
-{key:"propertyType", label:"What is the type of property?", options:["Bare Shell","Property Less than 15 yrs","Property More than 15 yrs"]},
-{key:"serviceLiftUsage", label:"Service lift usage allowed?", options:["Yes,Heavy material movement allowed","Yes,Heavy material movement Not allowed","No"]},
-{key:"staircaseUsage", label:"What is vailable staricase width?", options:[">4ft","<4ft","Not accesible"]},
-{key:"loadingArea", label:"Debris/material loading area present?", options:["Within 30 ft","More than 30 ft","Not present"]},
-{key:"societyDemolish", label:"What kind of demolition is allowed?", options:["Mechanical","Manual","Mechanical or Manual"]},
-{key:"vehicleEntry", label:"Vehicle entry allowed inside the premises?", options:["Yes,small size","Yes,medium size","Yes,large size","No"]},
-{key:"waterPoint", label:"Is there active water supply point at site location?", options:["Yes","No"]},
-{key:"electricPoint", label:"Is there active power supply at site location?", options:["Yes","No"]},
-{key:"workNOC", label:"Any NOC required to do internal modifications to the property?", options:["Yes","No"]},
-{key:"societyRestrictions", label:"Please mention any other society restrictions", type:"textarea"},
-{key:"societyWorktimings", label:"Please mention permissible work days and timings (e.g. Monday to Saturday, 10 AM to 2 PM, 4 PM to 8 PM)", type:"textarea"}                                                                     
+
+/* GENERAL */
+{key:"propertyType", label:"What is the type of property?", category:"General", options:["Bare Shell","Property Less than 15 yrs","Property More than 15 yrs"]},
+{key:"bhk", label:"What is the BHK?", category:"General", type:"text"},
+
+/* SOFT COST IDENTIFICATION */
+{key:"serviceLiftUsage", label:"Service lift usage allowed?", category:"Soft Cost Identification", options:["Yes,Heavy material movement allowed","Yes,Heavy material movement Not allowed","No"]},
+{key:"loadingArea", label:"Debris/material loading area present?", category:"Soft Cost Identification", options:["Within 30 ft","More than 30 ft","Not present"]},
+{key:"societyDemolish", label:"What kind of demolition is allowed?", category:"Soft Cost Identification", options:["Mechanical","Manual","Mechanical or Manual"]},
+{key:"scaffolding", label:"Will there be a requirement of scaffolding?", category:"Soft Cost Identification", options:["Yes","No"]},
+
+/* ACCESS & DELIVERY */
+{key:"liftSize", label:"What is the size of service lift?", category:"Access and Delivery constraints", type:"text"},
+{key:"vehicleEntry", label:"Vehicle entry allowed inside the premises?", category:"Access and Delivery constraints", options:["Yes,small size","Yes,medium size","Yes,large size","No"]},
+{key:"staircaseSize", label:"What is the available staircase width and height?", category:"Access and Delivery constraints", type:"text"},
+
+/* EXECUTION */
+{key:"waterPoint", label:"Is there an active water supply point at site location?", category:"Execution Constraints", options:["Yes","No"]},
+{key:"electricPoint", label:"Is there an active power supply at site location?", category:"Execution Constraints", options:["Yes","No"]},
+{key:"workNOC", label:"Any NOC required to do internal modifications to the property?", category:"Execution Constraints", options:["Yes","No"]},
+{key:"societyWorktimings", label:"Permissible work days and timings", category:"Execution Constraints", type:"textarea"},
+
+/* MATERIAL */
+{key:"societyRestrictions", label:"Other restrictions on material/specification", category:"Material Specification Constraint", type:"textarea"}
+
 ];
   
 const walls=["NW","EW","SW","WW"]
@@ -496,50 +510,107 @@ store.delete(id)
 
   
 function generateExcel(){
+
 saveData()
+
 let rows=[]
+
+/* -----------------------------
+   ROOM + WALL DATA
+------------------------------*/
 Object.keys(data.rooms).forEach(room=>{
+
 let r=data.rooms[room]
+
+/* WALL */
 Object.entries(r.wall).forEach(([k,v])=>{
 if(k.endsWith("-c")) return
-rows.push({...data.project,...data.constraints,Room:room,Section:"Wall",Item:k,Value:v,Walls:(r.wallSel[k]||[]).join(","),Comments:r.wall[k+"-c"]||""})
+
+rows.push({
+...data.project,
+Room:room,
+Section:"Wall",
+Item:k,
+Value:v,
+Walls:(r.wallSel[k]||[]).join(","),
+Comments:r.wall[k+"-c"]||""
 })
+})
+
+/* ROOM */
 Object.entries(r.room).forEach(([k,v])=>{
 if(k.endsWith("-c")) return
-rows.push({...data.project,...data.constraints,Room:room,Section:"Room",Item:k,Value:v,Comments:r.room[k+"-c"]||""})
+
+rows.push({
+...data.project,
+Room:room,
+Section:"Room",
+Item:k,
+Value:v,
+Comments:r.room[k+"-c"]||""
 })
 })
-let wb=XLSX.utils.book_new()
 
-/* EXISTING SHEET */
-let ws=XLSX.utils.json_to_sheet(rows)
-XLSX.utils.book_append_sheet(wb,ws,"Validation Data")
+})
 
-/* 🔥 NEW MEASUREMENT SHEET */
+/* -----------------------------
+   CREATE WORKBOOK
+------------------------------*/
+let wb = XLSX.utils.book_new()
+
+/* MAIN SHEET */
+let ws = XLSX.utils.json_to_sheet(rows)
+XLSX.utils.book_append_sheet(wb, ws, "Validation Data")
+
+
+/* -----------------------------
+   MEASUREMENT SHEET
+------------------------------*/
 let measureRows=[]
 
 Object.keys(data.rooms).forEach(room=>{
-let m=data.rooms[room].measurement || {}
 
-let row = {
-Room: room
-}
+let m = data.rooms[room].measurement || {}
+
+let row = { Room: room }
 
 measurementFields.forEach(f=>{
 row[f.key] = m[f.key] || ""
 })
 
 measureRows.push(row)
-console.log("Generating Excel...")
+
 })
 
+let ws2 = XLSX.utils.json_to_sheet(measureRows)
+XLSX.utils.book_append_sheet(wb, ws2, "Measurements")
 
-let ws2=XLSX.utils.json_to_sheet(measureRows)
-XLSX.utils.book_append_sheet(wb,ws2,"Measurements")
 
+/* -----------------------------
+   SOCIETY CONSTRAINTS (NEW)
+------------------------------*/
+let constraintRows = []
+
+societyQuestions.forEach(q=>{
+
+constraintRows.push({
+Category: q.category,
+Question: q.label,
+Value: (data.constraints && data.constraints[q.key]) || ""
+})
+
+})
+
+let ws3 = XLSX.utils.json_to_sheet(constraintRows)
+XLSX.utils.book_append_sheet(wb, ws3, "Society Constraints")
+
+
+/* -----------------------------
+   EXPORT FILE
+------------------------------*/
 XLSX.writeFile(wb,"site_validation.xlsx")
+
 }
-  
 function openCamera(surface, room){
 
 let input=document.createElement("input")
@@ -829,19 +900,38 @@ function renderSociety(){
 const container=document.getElementById("societyForm")
 container.innerHTML=""
 
+/* GROUP QUESTIONS BY CATEGORY */
+let grouped = {}
+
 societyQuestions.forEach(q=>{
+if(!grouped[q.category]) grouped[q.category]=[]
+grouped[q.category].push(q)
+})
+
+/* RENDER CATEGORY-WISE */
+Object.keys(grouped).forEach(category=>{
+
+let header=document.createElement("h4")
+header.innerText = category
+header.style.marginTop = "15px"
+header.style.color = "#1e3d8f"
+
+container.appendChild(header)
+
+grouped[category].forEach(q=>{
 
 let div=document.createElement("div")
-div.className="formGroup"
 
 let label=document.createElement("label")
-label.className="formLabel"
 label.innerText = q.label
 
 let input
 
 if(q.type==="textarea"){
 input=document.createElement("textarea")
+}else if(q.type==="text"){
+input=document.createElement("input")
+input.type="text"
 }else{
 input=document.createElement("select")
 input.innerHTML="<option></option>" + q.options.map(o=>`<option>${o}</option>`).join("")
@@ -849,7 +939,6 @@ input.innerHTML="<option></option>" + q.options.map(o=>`<option>${o}</option>`).
 
 input.id=q.key
 input.value=(data.constraints && data.constraints[q.key]) || ""
-
 input.onchange=saveData
 
 div.append(label,input)
@@ -857,6 +946,7 @@ container.appendChild(div)
 
 })
 
+})
 }
  
 function refreshPhotoSection(room){
