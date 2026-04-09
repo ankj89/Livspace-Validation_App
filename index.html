@@ -47,25 +47,43 @@ button{padding:8px 12px;border:none;background:#1e3d8f;color:white;border-radius
 
 <body>
 
-<header>Site Validation Tool</header>
+<header>Livspace - Site Validation Tool</header>
 
 <div class="container">
 
 <div class="card">
 <h3>Preliminary Project Details</h3>
+
 <div style="display:flex;flex-direction:column;gap:12px;">
+
 <input id="pid" placeholder="PID" onchange="saveData()">
 <input id="cx" placeholder="Cx Name" onchange="saveData()">
-<input id="city" placeholder="City" onchange="saveData()">
+
+<input id="city" list="cityList" placeholder="Select or type City" onchange="saveData()">
+<datalist id="cityList">
+<option value="Delhi">
+<option value="Mumbai">
+<option value="Bangalore">
+<option value="Hyderabad">
+<option value="Chennai">
+<option value="Pune">
+<option value="Kolkata">
+<option value="Ahmedabad">
+<option value="Jaipur">
+<option value="Gurgaon">
+<option value="Noida">
+</datalist>
+
 <input id="address" placeholder="Address" onchange="saveData()">
 <input id="society" placeholder="Society Name" onchange="saveData()">
 <input id="flat" placeholder="Flat No" onchange="saveData()">
 <input id="floorNo" placeholder="Floor No" onchange="saveData()">
+
 </div>
 </div>
   
 <div class="card">
-<h3>Society Constraints</h3>
+<h3>Work environment & Society Constraints</h3>
 <div id="societyForm" style="display:flex;flex-direction:column;gap:8px;"></div>
 </div>
 
@@ -94,27 +112,32 @@ const societyQuestions = [
 
 /* GENERAL */
 {key:"propertyType", label:"What is the type of property?", category:"General", options:["Bare Shell","Property Less than 15 yrs","Property More than 15 yrs"]},
-{key:"bhk", label:"What is the BHK?", category:"General", type:"text"},
+{key:"bhk", label:"What is the BHK?", category:"General",options:["1BHK","2BHK","3BHK","4BHK","5BHK","Villa","Penthouse"]},
 
 /* SOFT COST IDENTIFICATION */
-{key:"serviceLiftUsage", label:"Service lift usage allowed?", category:"Soft Cost Identification", options:["Yes,Heavy material movement allowed","Yes,Heavy material movement Not allowed","No"]},
-{key:"loadingArea", label:"Debris/material loading area present?", category:"Soft Cost Identification", options:["Within 30 ft","More than 30 ft","Not present"]},
+{key:"serviceLiftUsage", label:"Service lift usage allowed?", category:"Soft Cost Identification", options:["Yes,Heavy material movement allowed","Yes,Heavy material movement Not allowed","Yes,No material movement allowed","Service lift not present"]},
+{key:"loadingArea", label:"Is Debris/material loading area present?", category:"Soft Cost Identification", options:["Within 30 ft","More than 30 ft","Not present"]},
 {key:"societyDemolish", label:"What kind of demolition is allowed?", category:"Soft Cost Identification", options:["Mechanical","Manual","Mechanical or Manual"]},
 {key:"scaffolding", label:"Will there be a requirement of scaffolding?", category:"Soft Cost Identification", options:["Yes","No"]},
+{key:"outstation", label:"Will there be outstation charges applicable?", category:"Soft Cost Identification", options:["Yes","No"]},
 
 /* ACCESS & DELIVERY */
-{key:"liftSize", label:"What is the size of service lift?", category:"Access and Delivery constraints", type:"text"},
+{key:"liftheight", label:"What is the height of service lift(in ft)?", category:"Access and Delivery constraints", options:["<7ft",">7ft"]},
+{key:"liftdepth", label:"What is the depth of service lift(in ft)?", category:"Access and Delivery constraints", options:["<4ft",">4ft"]},
+ {key:"liftlenght", label:"What is the lenght of service lift(in ft)?", category:"Access and Delivery constraints", options:["<3ft",">3ft"]}, 
 {key:"vehicleEntry", label:"Vehicle entry allowed inside the premises?", category:"Access and Delivery constraints", options:["Yes,small size","Yes,medium size","Yes,large size","No"]},
-{key:"staircaseSize", label:"What is the available staircase width and height?", category:"Access and Delivery constraints", type:"text"},
+{key:"staircaseSize", label:"What is the available staircase width?", category:"Access and Delivery constraints", options:["<4ft",">4ft"]},
 
 /* EXECUTION */
 {key:"waterPoint", label:"Is there an active water supply point at site location?", category:"Execution Constraints", options:["Yes","No"]},
 {key:"electricPoint", label:"Is there an active power supply at site location?", category:"Execution Constraints", options:["Yes","No"]},
+ {key:"dgbackup", label:"Is there avaiability of DG/power backup?", category:"Execution Constraints", options:["Yes","No"]}, 
 {key:"workNOC", label:"Any NOC required to do internal modifications to the property?", category:"Execution Constraints", options:["Yes","No"]},
 {key:"societyWorktimings", label:"Permissible work days and timings", category:"Execution Constraints", type:"textarea"},
 
 /* MATERIAL */
-{key:"societyRestrictions", label:"Other restrictions on material/specification", category:"Material Specification Constraint", type:"textarea"}
+{key:"societyRestrictions", label:"Other restrictions on material/specification", category:"Material Specification Constraint", type:"textarea"},
+{key:"faciaRestrictions", label:"Can we do modification on external walls in corridor or facia of building?", category:"Material Specification Constraint", options:["Yes","No"]}
 
 ];
   
@@ -122,35 +145,35 @@ const walls=["NW","EW","SW","WW"]
 /* 🔥 MEASUREMENT CONFIG */
 
 const measurementFields = [
-
+/* 🔥 NEW ADDITIONS */
+{label:"Available door height (mm)", key:"doorheight"},
+{label:"Available door width (mm)", key:"doorwidth"},  
 /* FLOOR TO CEILING */
-{label:"Floor to Ceiling - Corner 1", key:"fc1"},
-{label:"Floor to Ceiling - Corner 2", key:"fc2"},
-{label:"Floor to Ceiling - Corner 3", key:"fc3"},
-{label:"Floor to Ceiling - Corner 4", key:"fc4"},
-{label:"Floor to Ceiling - Center", key:"fc5"},
+{label:"Floor to Ceiling - Corner 1 (mm)", key:"fc1"},
+{label:"Floor to Ceiling - Corner 2 (mm)", key:"fc2"},
+{label:"Floor to Ceiling - Corner 3 (mm)", key:"fc3"},
+{label:"Floor to Ceiling - Corner 4 (mm)", key:"fc4"},
+{label:"Floor to Ceiling - Cente (mm)", key:"fc5"},
 
 /* ROOM DIAGONALS */
-{label:"Room Diagonal 1", key:"diag1"},
-{label:"Room Diagonal 2", key:"diag2"},
+{label:"Room Diagonal 1 (mm)", key:"diag1"},
+{label:"Room Diagonal 2 (mm)", key:"diag2"},
 
 /* WALL UNDULATION */
-{label:"Wall Undulation NW", key:"undNW"},
-{label:"Wall Undulation EW", key:"undEW"},
-{label:"Wall Undulation SW", key:"undSW"},
-{label:"Wall Undulation WW", key:"undWW"},
-
-/* 🔥 NEW ADDITIONS */
+{label:"Wall Undulation NW (mm)", key:"undNW"},
+{label:"Wall Undulation EW (mm)", key:"undEW"},
+{label:"Wall Undulation SW (mm)", key:"undSW"},
+{label:"Wall Undulation WW (mm)", key:"undWW"},
 
 /* CEILING UTILITIES */
 {label:"Beam Bottom to Floor (mm)", key:"beamFloor"},
 {label:"Sprinkler Head to Floor (mm)", key:"sprinklerFloor"},
 
 /* SOFFIT (WALL-WISE) */
-{label:"Door Soffit to Ceiling - NW", key:"soffitNW"},
-{label:"Door Soffit to Ceiling - EW", key:"soffitEW"},
-{label:"Door Soffit to Ceiling - SW", key:"soffitSW"},
-{label:"Door Soffit to Ceiling - WW", key:"soffitWW"},
+{label:"Door Soffit to Ceiling - NW", key:"doorsoffitNW"},
+{label:"Door Soffit to Ceiling - EW", key:"doorsoffitEW"},
+{label:"Door Soffit to Ceiling - SW", key:"doorsoffitSW"},
+{label:"Door Soffit to Ceiling - WW", key:"doorsoffitWW"},
 /* SUNKUN SLAB */
 {label:"Sunken slab depth", key:"sunkslabdepth"},
 /* WINDOW SOFFIT */
@@ -163,37 +186,48 @@ const measurementFields = [
 ]
 
 const roomQuestions=[
-"Existing flooring in Good condition with with appropriate slope/levels? Capture Floor levels in Measurement Section",
+"Existing flooring in good condition with with appropriate slope/levels?",
+"In case of room extesnion is there a requirement to level the floors?Ex : balcony extensions" 
 "Can we do tile on tile installation?", 
-"Are existing walls in plumb/line and level? Capture Room diagonals in Measurement Section", 
-"Is there level difference in the True ceiling?Capture Floor to ceiling measurement in 4 corners and center in measurement section",
+"Are existing walls in plumb/line and level? Capture room diagonals in measurement section", 
+"Is there level difference in the true ceiling?Capture floor to ceiling dimesions in measurement section",
 "Are there any issues with the existing false ceiling that require removal and replacement?",                   
-"Are there visible undulations/uneven surface on the True Ceiling?Mention treatment required in comments",
-"Are there any utilities (sprinkler pipes, plumbing line, ducts) or cross beams running on the ceiling? Capture the beam bottom to floor mesurement(in mm), Sprinkler head to Floor measurement(in mm) and provide in the comments",
+"Are there visible undulations or uneven surface on the true ceiling?Mention treatment required in comments",
+"Are there any utilities (sprinkler pipes, plumbing line, ducts) or cross beams running on the ceiling? Capture the beam bottom to floor mesurement(in mm), Sprinkler head to Floor measurement(in mm) in mesurements section",
 "Is there any evidence of water leaks or moisture damage on the existing true ceiling?Mark on the layout as well and inform Cx",                    
 "Are the existing doors and door frame in good condition?",
+"Do we have sufficient opening available for furniture movement/shifting?Capture door height and width in measurement section"  
 "Are the existing windows and window frames in good condition?",
+"Does the existing windows have space to install additional tracks?",
+"Does existing grills require repair or re painting?", 
 "Is existing wiring in good condition and does not require replacement?", 
-"Does the existing circuit have sufficient load capacity or will require change or new circuit?",                 
+"Does the existing circuit have sufficient load capacity or will require change or new circuit?",
+"Are there plumbing points available?", 
 "Are there any issues with the existing plumbing lines, such as leaks etc that require replacement or repair?",
 "Are existing plumbing lines old and outdated and may not be compatible with modern fixtures?",
 "Is the main inlet valve accesible?",
-"Is there sufficent space to provide Shower cubicle?",
-"Is it possible to relocate the WC, without any modifications to external pipeline/drain line?"]
-const wallQuestions=["Is the wall a load-bearing wall/Mivan Construction/Sheer wall?Mark in the structural layout as well",
-"Is the wall dry wall/Gypsum wall?Mark in the structural layout as well",
+"Is there sufficent space to provide shower cubicle?",
+"Is it possible to relocate the WC, without any modifications to external pipeline/drain line?",
+"Do we need to take floor protection in onsite work?",
+"Do we need to take deep cleaning in onsite work?"   
+]
+const wallQuestions=["Is the wall a load-bearing wall/mivan construction/sheer wall?Mark in the structural layout as well",
+"Is the wall dry wall or gypsum wall?Mark in the structural layout as well",
+"Are there niches present?Mark in the structural layout as well",                     
 "Are there major cracks that require structural repair?Mark in the structural layout as well",
-"Are there Hairline crack/minor cracks/loose plaster requiring re plastering?? Mark in the structural layout as well",
+"Are there hairline crack/minor cracks/loose plaster requiring re plastering?? Mark in the structural layout as well",
 "Does the existing wall surface have undulations or uneven surface?Capture mesurements in measurement section",
-"Are there evidence of water seepage,dampness that require waterproofing treatment? Mark on the structural layout as well and inform Cx",
+"Are there evidence of water seepage or dampness that require waterproofing treatment? Mark on the structural layout as well and inform Cx",
 "Is there a suitable location for core cut available?",
-"Are existing switch/socket in working condition?Capture Wall wise Modules and configuration in the comments and mark on layout",
+"Are existing switches and sockets in working condition?Capture wall wise modules and configuration in the comments and mark on layout",
 "Is there a AC point(low side works) provided?",
 "Can split AC be installed post false ceiling w/o pockets? Capture Wall wise Door/Window Soffit to Ceiling measurement in mesurement section",
 "Is panelling/pelmet required to be done for AC installation?",
 "Are there any darker shade on the wall?",
 "Is the existing paint in good condition, without excessive peeling, flaking, or bubbling?",
-"Do we need to remove skirting for wardrobe installlation?"]
+"Do we need to remove skirting for wardrobe installlation?"
+                   
+]
 
 const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
 let approxSizeMB = parseFloat(localStorage.getItem("dbSizeMB") || "0")
