@@ -116,8 +116,10 @@ const societyQuestions = [
 
 /* SOFT COST IDENTIFICATION */
 {key:"serviceLiftUsage", label:"Service lift usage allowed?", category:"Soft Cost Identification", options:["Yes,Heavy material movement allowed","Yes,Heavy material movement Not allowed","Yes,No material movement allowed","Service lift not present"]},
-{key:"loadingArea", label:"Is Debris/material loading area present?", category:"Soft Cost Identification", options:["Within 30 ft","More than 30 ft","Not present"]},
-{key:"societyDemolish", label:"What kind of demolition is allowed?", category:"Soft Cost Identification", options:["Mechanical","Manual","Mechanical or Manual"]},
+{key:"servicelifttime", label:"What is the permissible time for lift usage?", category:"Soft Cost Identification", type:"textarea"},  
+{key:"loadingArea", label:"Is Debris/material loading/unloading space avaiable?", category:"Soft Cost Identification", options:["Yes","No"]},
+{key:"loadingAreadistance", label:"Record the distance of loading/unloading area from site (in ft)", category:"Soft Cost Identification", type:"number"},  
+{key:"societyDemolish", label:"What kind of demolition is allowed?", category:"Soft Cost Identification", options:["Mechanical","Only Manual","Mechanical or Manual"]},
 {key:"scaffolding", label:"Will there be a requirement of scaffolding?", category:"Soft Cost Identification", options:["Yes","No"]},
 {key:"outstation", label:"Will there be outstation charges applicable?", category:"Soft Cost Identification", options:["Yes","No"]},
 
@@ -125,20 +127,22 @@ const societyQuestions = [
 {key:"liftheight", label:"What is the height of service lift(in ft)?", category:"Access and Delivery constraints", options:["<7ft",">7ft"]},
 {key:"liftdepth", label:"What is the depth of service lift(in ft)?", category:"Access and Delivery constraints", options:["<4ft",">4ft"]},
  {key:"liftlenght", label:"What is the lenght of service lift(in ft)?", category:"Access and Delivery constraints", options:["<3ft",">3ft"]}, 
-{key:"vehicleEntry", label:"Vehicle entry allowed inside the premises?", category:"Access and Delivery constraints", options:["Yes,small size","Yes,medium size","Yes,large size","No"]},
-{key:"staircaseSize", label:"What is the available staircase width?", category:"Access and Delivery constraints", options:["<4ft",">4ft"]},
+{key:"vehicleEntry", label:"Vehicle entry allowed inside the premises?", category:"Access and Delivery constraints", options:["Yes,8ft vehicle allowed","Yes,8ft and 14ft vehicle allowed","No"]},
+{key:"staircaseSize", label:"What is the available staircase width?Record in ft", category:"Access and Delivery constraints", type : "number"},
 
 /* EXECUTION */
 {key:"waterPoint", label:"Is there an active water supply point at site location?", category:"Execution Constraints", options:["Yes","No"]},
 {key:"electricPoint", label:"Is there an active power supply at site location?", category:"Execution Constraints", options:["Yes","No"]},
+ {key:"gassline", label:"Is there CNG gas line installed at site location?", category:"Execution Constraints", options:["Yes","No"]}, 
  {key:"dgbackup", label:"Is there avaiability of DG/power backup?", category:"Execution Constraints", options:["Yes","No"]}, 
-{key:"workNOC", label:"Any NOC required to do internal modifications to the property?", category:"Execution Constraints", options:["Yes","No"]},
+{key:"workNOC", label:"Is builder/scoiety permission required to start the work?", category:"Execution Constraints", options:["Yes","No"]},
+{key:"workNOCpolice", label:"Is police verification required for labours?", category:"Execution Constraints", options:["Yes","No"]},  
 {key:"societyWorktimings", label:"Permissible work days and timings", category:"Execution Constraints", type:"textarea"},
 
 /* MATERIAL */
-{key:"societyRestrictions", label:"Other restrictions on material/specification", category:"Material Specification Constraint", type:"textarea"},
-{key:"faciaRestrictions", label:"Can we do modification on external walls in corridor or facia of building?", category:"Material Specification Constraint", options:["Yes","No"]}
-
+{key:"societyRestrictions", label:"Other restrictions on material/specification mandated by builder/society?", category:"Material Specification Constraint", type:"textarea"},
+{key:"faciaRestrictions", label:"Can we do modification on external walls in corridor or facia of building?", category:"Material Specification Constraint", options:["Yes","No"]},
+{key:"electricalmaterial", label:"What is the make and model of existing switchboard fixtures?", category:"Material Specification Constraint", type:"textarea"}
 ];
   
 const walls=["NW","EW","SW","WW"]
@@ -187,6 +191,7 @@ const measurementFields = [
 
 const roomQuestions=[
 "Existing flooring in good condition with with appropriate slope/levels?",
+"Is existing skirting flushed?",   
 "In case of room extesnion is there a requirement to level the floors?Ex : balcony extensions",
 "Can we do tile on tile installation?", 
 "Are existing walls in plumb/line and level? Capture room diagonals in measurement section", 
@@ -200,16 +205,19 @@ const roomQuestions=[
 "Are the existing windows and window frames in good condition?",
 "Does the existing windows have space to install additional tracks?",
 "Does existing grills require repair or re painting?", 
+"Is there sufficient space to provide swing shutters in wardrobes/storages etc?",
+"Is there sufficient space to provide bed with drawers?", 
 "Is existing wiring in good condition and does not require replacement?", 
 "Does the existing circuit have sufficient load capacity or will require change or new circuit?",
 "Are there plumbing points available?", 
 "Are there any issues with the existing plumbing lines, such as leaks etc that require replacement or repair?",
 "Are existing plumbing lines old and outdated and may not be compatible with modern fixtures?",
+"Are existing plumbing lines CPVC/UPVC?", 
 "Is the main inlet valve accesible?",
 "Is there sufficent space to provide shower cubicle?",
 "Is it possible to relocate the WC, without any modifications to external pipeline/drain line?",
 "Do we need to take floor protection in onsite work?",
-"Do we need to take deep cleaning in onsite work?"   
+"Do we need to take deep cleaning in onsite work?"
 ]
 const wallQuestions=["Is the wall a load-bearing wall/mivan construction/sheer wall?Mark in the structural layout as well",
 "Is the wall dry wall or gypsum wall?Mark in the structural layout as well",
@@ -224,9 +232,7 @@ const wallQuestions=["Is the wall a load-bearing wall/mivan construction/sheer w
 "Can split AC be installed post false ceiling w/o pockets? Capture Wall wise Door/Window Soffit to Ceiling measurement in mesurement section",
 "Is panelling/pelmet required to be done for AC installation?",
 "Are there any darker shade on the wall?",
-"Is the existing paint in good condition, without excessive peeling, flaking, or bubbling?",
-"Do we need to remove skirting for wardrobe installlation?"
-                   
+"Is the existing paint in good condition, without excessive peeling, flaking, or bubbling?"
 ]
 
 const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
