@@ -957,7 +957,6 @@ function renderSociety(){
 const container=document.getElementById("societyForm")
 container.innerHTML=""
 
-/* GROUP QUESTIONS BY CATEGORY */
 let grouped = {}
 
 societyQuestions.forEach(q=>{
@@ -965,8 +964,17 @@ if(!grouped[q.category]) grouped[q.category]=[]
 grouped[q.category].push(q)
 })
 
-/* RENDER CATEGORY-WISE */
-Object.keys(grouped).forEach(category=>{
+const order = [
+"General",
+"Soft Cost Identification",
+"Access and Delivery constraints",
+"Execution Constraints",
+"Material Specification Constraint"
+];
+
+order.forEach(category=>{
+
+if(!grouped[category]) return;
 
 let header=document.createElement("h4")
 header.innerText = category
@@ -986,12 +994,18 @@ let input
 
 if(q.type==="textarea"){
 input=document.createElement("textarea")
-}else if(q.type==="text"){
+
+}else if(q.type==="number"){
 input=document.createElement("input")
-input.type="text"
-}else{
+input.type="number"
+
+}else if(q.options){
 input=document.createElement("select")
 input.innerHTML="<option></option>" + q.options.map(o=>`<option>${o}</option>`).join("")
+
+}else{
+input=document.createElement("input")
+input.type="text"
 }
 
 input.id=q.key
@@ -1004,8 +1018,8 @@ container.appendChild(div)
 })
 
 })
+
 }
- 
 function refreshPhotoSection(room){
 
 let r = data.rooms[room]
