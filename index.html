@@ -307,8 +307,11 @@ function startValidation(){
 
     saveData()
 
-    // ✅ CRITICAL FIX
     renderAppSections()
+
+    // ✅ CRITICAL FIX (THIS WAS MISSING)
+    renderSociety()
+
     renderTabs(defaultRooms[0])
     openRoom(defaultRooms[0])
 }
@@ -352,7 +355,7 @@ function renderAppSections(){
         } else {
             endBtn.style.display = "inline-block"
         }
-
+        renderSociety()
         // ✅ ALWAYS ensure tabs visible
         if(roomOrder.length > 0){
             renderTabs(roomOrder[0])
