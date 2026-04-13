@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
+ <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e3d8f">
  <meta name="app-version" content="v1.3.2">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Livspace-Site Validation Tool 1.3</title>
@@ -1451,7 +1453,10 @@ window.onbeforeunload = function () {
         return "Validation in progress. Are you sure?"
     }
 }
-
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js")
+    .then(()=> console.log("SW registered"))
+}
 document.addEventListener("DOMContentLoaded", async ()=>{
 startVersionWatcher()  
 await initDB()
