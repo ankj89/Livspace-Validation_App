@@ -1157,16 +1157,16 @@ function startVersionWatcher(){
         return hash.toString()
     }
 
-    // 🔥 INITIAL HASH
-    let currentVersion = localStorage.getItem("appVersion")
+    // ✅ INITIAL VERSION SET (ONLY ONCE)
+    let storedVersion = localStorage.getItem("appVersion")
 
-if(!currentVersion){
-    currentVersion = hashString(document.documentElement.innerHTML)
-    localStorage.setItem("appVersion", currentVersion)
-}
-    let currentVersion = hashString(initialHTML)
+    if(!storedVersion){
+        let initialHTML = document.documentElement.innerHTML
+        let initialHash = hashString(initialHTML)
 
-    localStorage.setItem("appVersion", currentVersion)
+        localStorage.setItem("appVersion", initialHash)
+        storedVersion = initialHash
+    }
 
     setInterval(async ()=>{
 
@@ -1175,18 +1175,21 @@ if(!currentVersion){
             let text = await res.text()
 
             let newVersion = hashString(text)
-            let storedVersion = localStorage.getItem("appVersion")
-        console.log("OLD VERSION:", storedVersion)
-        console.log("NEW VERSION:", newVersion)
-            if(newVersion !== storedVersion){
+            let oldVersion = localStorage.getItem("appVersion")
+
+            // 🔥 DEBUG (KEEP FOR NOW)
+            console.log("OLD VERSION:", oldVersion)
+            console.log("NEW VERSION:", newVersion)
+
+            if(newVersion !== oldVersion){
                 showUpdateBanner(newVersion)
             }
 
         }catch(err){
-            console.log("Version check failed")
+            console.log("Version check failed", err)
         }
 
-    }, 10000)
+    }, 5000)
 }
 function showUpdateBanner(newVersion){
 
