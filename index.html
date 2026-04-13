@@ -1453,7 +1453,7 @@ window.onbeforeunload = function () {
 }
 
 document.addEventListener("DOMContentLoaded", async ()=>{
-
+startVersionWatcher()  
 await initDB()
 // 🔥 HARD RESET HANDLER (CRITICAL)
 let forceReset = localStorage.getItem("forceReset")
@@ -1545,7 +1545,6 @@ event.data.data
 )
 }
 })
-startVersionWatcher()  
 })
 </script>
 <div id="zipLoader" style="
