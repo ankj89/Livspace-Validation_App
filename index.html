@@ -1367,7 +1367,8 @@ async function downloadAllImages(){
 
     for(let room in data.rooms){
 
-        let roomFolder = zip.folder(room)
+      let cleanRoom = room.replace(/[^a-zA-Z0-9]/g, "_")
+      let roomFolder = zip.folder(cleanRoom)
         let r = data.rooms[room]
 
         for(let surface in r.photos){
@@ -1383,7 +1384,9 @@ async function downloadAllImages(){
 
                 let blob = await fetch(src).then(res => res.blob())
 
-                let fileName = `${surface}_${i+1}.jpg`
+                let cleanRoom = room.replace(/[^a-zA-Z0-9]/g, "_")
+let fileName = `${cleanRoom}_${surface}_${i+1}.jpg`
+roomFolder.file(fileName, blob)
                 roomFolder.file(fileName, blob)
 
                 // 🔥 UPDATE PROGRESS
