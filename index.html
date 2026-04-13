@@ -3,7 +3,7 @@
 <head>
  <meta name="app-version" content="1"> 
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Livspace-Site Validation Tool 1.0</title>
+<title>Livspace-Site Validation Tool 1.1</title>
 
 <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -976,7 +976,9 @@ if(!drawing || mode !== "draw") return
 ctx.lineCap = "round"
 ctx.lineJoin = "round"
 ctx.strokeStyle = "red"
-ctx.lineWidth = 15
+// 🔥 Dynamic thickness
+ctx.lineWidth = Math.max(3, canvas.width / 200)
+
 
 let p = getCoords(e)
 
@@ -1002,7 +1004,8 @@ if(mode === "text"){
 let txt = prompt("Enter note")
 if(txt){
 ctx.fillStyle = "red"
-ctx.font = "68px Arial"
+// 🔥 Dynamic font
+ctx.font = `${Math.max(20, canvas.width / 25)}px Arial`
 let p = getCoords(e)
 ctx.fillText(txt, p.x, p.y)
 }
