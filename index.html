@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  
+ <meta name="app-version" content="1"> 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Livspace-Site Validation Tool 1.0</title>
 
@@ -1145,22 +1145,24 @@ container.appendChild(div)
 }
 function startVersionWatcher(){
 
-    // 🔥 Current version = file last modified
-    let currentVersion = document.lastModified
+    let currentVersion = document.querySelector('meta[name="app-version"]').content
     localStorage.setItem("appVersion", currentVersion)
 
     setInterval(async ()=>{
 
         try{
             let res = await fetch(window.location.href, { cache: "no-store" })
+            let text = await res.text()
 
-            let newVersion = res.headers.get("Last-Modified")
-            if(!newVersion) return
+            // 🔥 Extract version from HTML
+            let match = text.match(/meta name="app-version" content="(.*?)"/)
 
+            if(!match) return
+
+            let newVersion = match[1]
             let storedVersion = localStorage.getItem("appVersion")
 
             if(newVersion !== storedVersion){
-
                 showUpdateBanner(newVersion)
             }
 
@@ -1168,21 +1170,17 @@ function startVersionWatcher(){
             console.log("Version check failed")
         }
 
-    }, 30000) // every 30 sec
+    }, 15000) // faster check (15 sec)
 }
 function showUpdateBanner(newVersion){
 
     let banner = document.getElementById("updateBanner")
-
     banner.style.display = "block"
 
     banner.onclick = ()=>{
         localStorage.setItem("appVersion", newVersion)
-
-        // avoid unload warning
         window.onbeforeunload = null
-
-        location.reload()
+        location.reload(true)
     }
 }  
 function openCamera(surface, room){
