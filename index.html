@@ -309,7 +309,17 @@ function ensureValidationMeta(){
 }  
 
 function saveData(){
+let size = new Blob([JSON.stringify(data)]).size / (1024*1024)
 
+if(size > 10){
+    alert("⚠️ Large project data. Avoid closing or refreshing frequently.")
+}
+ 
+if(!db){
+    console.warn("DB not ready, retrying...")
+    setTimeout(saveData, 300)
+    return
+}
 data.project = {
     pid: document.getElementById("pid").value,
     cx: document.getElementById("cx").value,
@@ -321,7 +331,7 @@ data.project = {
 }
 
 data.constraints={}
-
+data.roomOrder = roomOrder
 societyQuestions.forEach(q=>{
 let el=document.getElementById(q.key)
 if(el) data.constraints[q.key]=el.value
@@ -330,6 +340,19 @@ if(el) data.constraints[q.key]=el.value
 // ✅ SAVE IN DB
 saveAppData()
 }
+
+function populateProjectDetails(){
+
+if(!data.project) return
+
+document.getElementById("pid").value = data.project.pid || ""
+document.getElementById("cx").value = data.project.cx || ""
+document.getElementById("city").value = data.project.city || ""
+document.getElementById("address").value = data.project.address || ""
+document.getElementById("society").value = data.project.society || ""
+document.getElementById("flat").value = data.project.flat || ""
+document.getElementById("floorNo").value = data.project.floorNo || ""
+} 
  
 function startValidation(){
    
@@ -374,22 +397,36 @@ function endValidation(){
     }
 
     // 🔥 CLEAR EVERYTHING
-    indexedDB.deleteDatabase("SiteValidatorDB")
-    localStorage.removeItem("validatorData")
+   let req = indexedDB.deleteDatabase("SiteValidatorDB")
+
+req.onsuccess = ()=>{
+    data = null
+
     localStorage.removeItem("dbSizeMB")
+
+    alert("Validation completed ✅")
+
+    location.href = location.origin + location.pathname
+}
+
+req.onerror = ()=>{
+    alert("Error ending validation. Try again.")
+}
 
     // 🔥 ADD RESET FLAG
     localStorage.setItem("forceReset", "true")
     window.onbeforeunload = null
     alert("Validation completed ✅") 
     // 🔥 HARD RELOAD
-    location.reload()
+ 
 }
 /* =========================
    2. ADD SAVE FUNCTION
 ========================= */
 function saveAppData(){
 return new Promise((resolve, reject)=>{
+
+try{
 
 let tx = db.transaction(["appData"], "readwrite")
 let store = tx.objectStore("appData")
@@ -400,7 +437,18 @@ store.put({
 })
 
 tx.oncomplete = ()=>resolve()
-tx.onerror = reject
+tx.onerror = (e)=>{
+    console.error("DB WRITE FAILED", e)
+    alert("⚠️ Data save failed. Please do not refresh. Try again.")
+    reject(e)
+}
+
+}catch(err){
+    console.error("DB ERROR", err)
+    alert("⚠️ Critical storage error")
+    reject(err)
+}
+
 })
 }
 /* =========================
@@ -521,12 +569,7 @@ div.appendChild(btn)
 return div
 }
 
-function applyAllWalls(value, room){
-const r=data.rooms[room]
-wallQuestions.forEach(q=>{r.wall[q]=value})
-saveData()
-openRoom(room)
-}
+
 
 function openRoom(room){
 if(data.validationMeta?.ended){
@@ -569,10 +612,7 @@ return content
 /* WALL */
 let wallSection=createAccordion("Wall Questions")
 
-wallSection.innerHTML+=`
-<button onclick="applyAllWalls('Yes','${room}')">Apply Yes to All</button>
-<button onclick="applyAllWalls('No','${room}')">Apply No to All</button>
-`
+
 
 wallQuestions.forEach(q=>{
 let div=document.createElement("div")
@@ -1095,7 +1135,7 @@ if(!data.rooms[name]){
 }
 
 roomOrder.push(name)
-
+data.roomOrder = roomOrder
 // ✅ FIX: re-render + open new room
 renderTabs(name)
 openRoom(name)
@@ -1465,26 +1505,37 @@ photoSection.style.display = "block"
 }
 function resetData(){
 
-if(confirm("This will delete all data including photos. Continue?")){
+if(!confirm("This will delete all data including photos. Continue?")){
+    return
+}
 
-    let req = indexedDB.deleteDatabase("SiteValidatorDB")
+// 🔥 BLOCK UI (optional but good)
+document.body.innerHTML = "<h2 style='text-align:center;margin-top:40px'>Resetting app...</h2>"
 
-    req.onsuccess = ()=>{
+// 🔥 DELETE DB PROPERLY
+let req = indexedDB.deleteDatabase("SiteValidatorDB")
 
-        localStorage.removeItem("dbSizeMB")
+req.onsuccess = ()=>{
+    console.log("DB deleted")
 
-        data = {
-            validationMeta:{
-                started:false,
-                ended:false,
-                excelGenerated:false,
-                imagesDownloaded:false
-            },
-            rooms:{}
-        }
+    // 🔥 CLEAR MEMORY
+    data = null
+    roomOrder = [...defaultRooms]
 
-        location.reload()
-    }
+    // 🔥 CLEAR LOCAL STORAGE FLAGS
+    localStorage.removeItem("dbSizeMB")
+    localStorage.removeItem("appVersion")
+
+    // 🔥 HARD RELOAD CLEAN
+    location.href = location.origin + location.pathname
+}
+
+req.onerror = ()=>{
+    alert("Reset failed. Try again.")
+}
+
+req.onblocked = ()=>{
+    alert("Please close other tabs of this app and try again.")
 }
 }
 async function downloadAllImages(){
@@ -1605,9 +1656,10 @@ if(!stored){
 }else{
     data = stored
 }
-
+roomOrder = data.roomOrder || [...defaultRooms]
 ensureValidationMeta()
 normalizeData()
+populateProjectDetails()
 
 if(data.validationMeta?.started){
 
