@@ -39,39 +39,34 @@ self.addEventListener("activate", event => {
 
     event.waitUntil(
         (async ()=>{
-            let version = await getVersion();
-            let currentCache = CACHE_PREFIX + version;
+            let version = await getVersion()
+            let currentCache = CACHE_PREFIX + version
 
-            let keys = await caches.keys();
+            let keys = await caches.keys()
 
             await Promise.all(
-    keys.map(k=>{
-        if(
-            k.startsWith(CACHE_PREFIX) &&
-            k !== currentCache &&
-            k !== CACHE_PREFIX + "dynamic"
-        ){
-            return caches.delete(k);
-        }
-    })
-);
+                keys.map(k=>{
+                    if(
+                        k.startsWith(CACHE_PREFIX) &&
+                        k !== currentCache &&
+                        k !== CACHE_PREFIX + "dynamic"
+                    ){
+                        return caches.delete(k)
+                    }
+                })
+            )
 
-            self.clients.claim();
+            await self.clients.claim()
 
-            // 🔥 FORCE RELOAD ALL CLIENTS
-let clientsList = await self.clients.matchAll({ type: "window" })
+            // 🔥 FORCE RELOAD ALL CLIENTS (ONLY ONCE)
+            let clientsList = await self.clients.matchAll({ type: "window" })
 
-clientsList.forEach(client => {
-    client.postMessage({ type: "FORCE_RELOAD" })
-})
-            // 🔥 FORCE RELOAD ALL CLIENTS
-let clientsList = await self.clients.matchAll({ type: "window" })
+            clientsList.forEach(client => {
+                client.postMessage({ type: "FORCE_RELOAD" })
+            })
 
-clientsList.forEach(client => {
-    client.postMessage({ type: "FORCE_RELOAD" })
-})
         })()
-    );
+    )
 });
 
 /* FETCH */
