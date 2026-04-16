@@ -1793,6 +1793,17 @@ if(data.validationMeta?.started){
 
     }
 })
+
+// 🔥 HANDLE SERVICE WORKER FORCE RELOAD
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener("message", event => {
+        if (event.data && event.data.type === "FORCE_RELOAD") {
+            console.log("New version active → reloading")
+            window.location.reload()
+        }
+    })
+}
+ 
 </script>
 <div id="zipLoader" style="
 position:fixed;
