@@ -1,16 +1,27 @@
 const CACHE_PREFIX = "validator-";
+const CORE_FILES = [
+    "./",
+    "./index.html",
+    "./manifest.json",
+    "./version.txt",
+    "./xlsx.full.min.js",
+    "./jszip.min.js"
+];
 
+// 🔥 GET VERSION (SAFE)
 async function getVersion(){
     try{
-        let res = await fetch("version.txt?ts=" + Date.now());
+        let res = await fetch("./version.txt?ts=" + Date.now());
         let v = await res.text();
         return v.trim();
     }catch(e){
-        return "v1"; // fallback
+        return "v1"; // fallback (offline safe)
     }
 }
 
-/* INSTALL */
+/* =========================
+   INSTALL
+========================= */
 self.addEventListener("install", event => {
 
     event.waitUntil(
@@ -20,30 +31,33 @@ self.addEventListener("install", event => {
 
             let cache = await caches.open(CACHE_NAME);
 
-            await cache.addAll([
-                "./",
-                "./index.html",
-                "./manifest.json",
-                "./version.txt",
-                "./xlsx.full.min.js",
-                "./jszip.min.js"
-            ]);
+            // 🔥 SAFE CACHING (no crash if one fails)
+            for (let file of CORE_FILES){
+                try{
+                    await cache.add(file);
+                }catch(e){
+                    console.warn("Cache failed:", file);
+                }
+            }
 
             self.skipWaiting();
         })()
     );
 });
 
-/* ACTIVATE — CLEAN OLD CACHE */
+/* =========================
+   ACTIVATE
+========================= */
 self.addEventListener("activate", event => {
 
     event.waitUntil(
         (async ()=>{
-            let version = await getVersion()
-            let currentCache = CACHE_PREFIX + version
+            let version = await getVersion();
+            let currentCache = CACHE_PREFIX + version;
 
-            let keys = await caches.keys()
+            let keys = await caches.keys();
 
+            // 🔥 DELETE OLD CACHE
             await Promise.all(
                 keys.map(k=>{
                     if(
@@ -51,38 +65,42 @@ self.addEventListener("activate", event => {
                         k !== currentCache &&
                         k !== CACHE_PREFIX + "dynamic"
                     ){
-                        return caches.delete(k)
+                        return caches.delete(k);
                     }
                 })
-            )
+            );
 
-            await self.clients.claim()
+            await self.clients.claim();
 
-            // 🔥 FORCE RELOAD ALL CLIENTS (ONLY ONCE)
-            let clientsList = await self.clients.matchAll({ type: "window" })
+            // 🔥 FORCE RELOAD (APP UPDATE)
+            let clientsList = await self.clients.matchAll({ type: "window" });
 
             clientsList.forEach(client => {
-                client.postMessage({ type: "FORCE_RELOAD" })
-            })
+                client.postMessage({ type: "FORCE_RELOAD" });
+            });
 
         })()
-    )
+    );
 });
 
-/* FETCH */
+/* =========================
+   FETCH
+========================= */
 self.addEventListener("fetch", event => {
 
-    const url = new URL(event.request.url)
+    const url = new URL(event.request.url);
 
-    // 🔥 ALWAYS FETCH FRESH HTML (prevents stale app)
-    if (url.pathname.endsWith(".html") || url.pathname === "/") {
+    // 🔥 HTML → NETWORK FIRST (ALWAYS LATEST)
+    if (url.pathname.endsWith(".html") || url.pathname === "/" || url.pathname === "") {
         event.respondWith(
-            fetch(event.request).catch(() => caches.match("/index.html"))
-        )
-        return
+            fetch(event.request)
+                .then(res => res)
+                .catch(() => caches.match("./index.html"))
+        );
+        return;
     }
 
-    // 🔥 CACHE-FIRST FOR STATIC ASSETS
+    // 🔥 STATIC FILES → CACHE FIRST
     if (
         url.pathname.endsWith(".js") ||
         url.pathname.endsWith(".css") ||
@@ -92,17 +110,20 @@ self.addEventListener("fetch", event => {
             caches.match(event.request).then(res => {
                 return res || fetch(event.request).then(networkRes => {
                     return caches.open(CACHE_PREFIX + "dynamic").then(cache => {
-                        cache.put(event.request, networkRes.clone())
-                        return networkRes
-                    })
-                })
+                        cache.put(event.request, networkRes.clone());
+                        return networkRes;
+                    });
+                });
             })
-        )
-        return
+        );
+        return;
     }
 
-    // 🔥 DEFAULT NETWORK-FIRST
+    // 🔥 DEFAULT → NETWORK FIRST + FALLBACK
     event.respondWith(
-        fetch(event.request).catch(() => caches.match(event.request))
-    )
-})
+        fetch(event.request).catch(() => {
+            return caches.match(event.request)
+                || caches.match("./index.html"); // 🔥 NEVER FAIL
+        })
+    );
+});
