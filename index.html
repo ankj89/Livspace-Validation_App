@@ -241,13 +241,18 @@ let db
 
 function initDB(){
 return new Promise((resolve, reject)=>{
-let request = indexedDB.open("SiteValidatorDB", 1)
+let request = indexedDB.open("SiteValidatorDB", 2) // version bump
 
 request.onupgradeneeded = function(e){
 db = e.target.result
 
 if(!db.objectStoreNames.contains("photos")){
 db.createObjectStore("photos", { keyPath: "id" })
+}
+
+// ✅ NEW STORE
+if(!db.objectStoreNames.contains("appData")){
+db.createObjectStore("appData", { keyPath: "id" })
 }
 }
 
@@ -258,7 +263,8 @@ resolve()
 
 request.onerror = reject
 })
-}  
+}
+
   
 let roomOrder=[...defaultRooms]
 let data = JSON.parse(localStorage.getItem("validatorData") || "null")
@@ -303,6 +309,7 @@ function ensureValidationMeta(){
 }  
 
 function saveData(){
+
 data.project = {
     pid: document.getElementById("pid").value,
     cx: document.getElementById("cx").value,
@@ -312,14 +319,18 @@ data.project = {
     flat: document.getElementById("flat").value,
     floorNo: document.getElementById("floorNo").value
 }
+
 data.constraints={}
 
 societyQuestions.forEach(q=>{
 let el=document.getElementById(q.key)
 if(el) data.constraints[q.key]=el.value
 })
-localStorage.setItem("validatorData",JSON.stringify(data))
+
+// ✅ SAVE IN DB
+saveAppData()
 }
+ 
 function startValidation(){
    
     ensureValidationMeta()  // ✅ ADD THIS
@@ -374,6 +385,45 @@ function endValidation(){
     // 🔥 HARD RELOAD
     location.reload()
 }
+/* =========================
+   2. ADD SAVE FUNCTION
+========================= */
+function saveAppData(){
+return new Promise((resolve, reject)=>{
+
+let tx = db.transaction(["appData"], "readwrite")
+let store = tx.objectStore("appData")
+
+store.put({
+    id: "main",
+    data: data
+})
+
+tx.oncomplete = ()=>resolve()
+tx.onerror = reject
+})
+}
+/* =========================
+   3. ADD LOAD FUNCTION
+========================= */
+function loadAppData(){
+return new Promise((resolve, reject)=>{
+
+let tx = db.transaction(["appData"], "readonly")
+let store = tx.objectStore("appData")
+
+let req = store.get("main")
+
+req.onsuccess = ()=>{
+resolve(req.result ? req.result.data : null)
+}
+
+req.onerror = reject
+})
+}
+ 
+
+ 
 function renderAppSections(){
 if(!data.validationMeta || !data.validationMeta.started){
         document.getElementById("validationApp").style.display = "none"
@@ -1421,20 +1471,19 @@ if(confirm("This will delete all data including photos. Continue?")){
 
     req.onsuccess = ()=>{
 
-        localStorage.removeItem("validatorData")
         localStorage.removeItem("dbSizeMB")
 
-        // ✅ FULL RESET
-data = {
-    validationMeta:{
-        started:false,
-        ended:false,
-        excelGenerated:false,
-        imagesDownloaded:false
-    },
-    rooms:{}
-}
-      
+        data = {
+            validationMeta:{
+                started:false,
+                ended:false,
+                excelGenerated:false,
+                imagesDownloaded:false
+            },
+            rooms:{}
+        }
+
+        location.reload()
     }
 }
 }
@@ -1530,40 +1579,18 @@ if ("serviceWorker" in navigator) {
       .catch(err => console.log("SW failed", err));
   });
 }
+
+ 
+========================= */
 document.addEventListener("DOMContentLoaded", async ()=>{
-startVersionWatcher()  
+
+startVersionWatcher()
 await initDB()
-// 🔥 HARD RESET HANDLER (CRITICAL)
-let forceReset = localStorage.getItem("forceReset")
 
-if(forceReset === "true"){
+// ✅ LOAD FROM DB
+let stored = await loadAppData()
 
-    localStorage.removeItem("forceReset")
-
-    data = {
-        validationMeta:{
-            started:false,
-            ended:false,
-            excelGenerated:false,
-            imagesDownloaded:false
-        },
-        rooms:{}   // 🚫 NO normalizeData here
-    }
-
-    document.getElementById("validationApp").style.display = "none"
-    document.getElementById("startValidationBtn").style.display = "block"
-
-    document.getElementById("roomForm").innerHTML = ""
-    document.getElementById("roomTabs").innerHTML = ""
-    document.getElementById("societyForm").innerHTML = ""
-
-    return   // 🔥 STOP EXECUTION
-}
-  
-let stored = localStorage.getItem("validatorData")
-
-// ✅ HANDLE CORRUPT / EMPTY CASE
-if(!stored || stored === "null" || stored === "undefined"){
+if(!stored){
 
     data = {
         validationMeta: {
@@ -1574,22 +1601,12 @@ if(!stored || stored === "null" || stored === "undefined"){
         },
         rooms: {}
     }
-    ensureValidationMeta()
-    normalizeData()
 
-    document.getElementById("validationApp").style.display = "none"
-    document.getElementById("startValidationBtn").style.display = "block"
-// 🔥 CLEAR UI PROPERLY
-document.getElementById("roomForm").innerHTML = ""
-document.getElementById("roomTabs").innerHTML = ""
-document.getElementById("societyForm").innerHTML = ""
-    return
+}else{
+    data = stored
 }
 
-// ✅ EXISTING SESSION
-data = JSON.parse(stored)
 ensureValidationMeta()
-
 normalizeData()
 
 if(data.validationMeta?.started){
@@ -1599,30 +1616,16 @@ if(data.validationMeta?.started){
     renderTabs(roomOrder[0])
     openRoom(roomOrder[0])
 
-} else {
+}else{
 
-    // 🔥 FORCE CLEAN UI STATE
     document.getElementById("validationApp").style.display = "none"
     document.getElementById("startValidationBtn").style.display = "block"
 
-    // 🔥 CLEAR ANY RENDERED CONTENT
     document.getElementById("roomForm").innerHTML = ""
     document.getElementById("roomTabs").innerHTML = ""
     document.getElementById("societyForm").innerHTML = ""
-
 }
 
-  
-window.addEventListener("message", function(event){
-if(event.data.type==="ANNOTATION_SAVE"){
-saveAnnotated(
-event.data.room,
-event.data.surface,
-event.data.index,
-event.data.data
-)
-}
-})
 })
 </script>
 <div id="zipLoader" style="
