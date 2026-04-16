@@ -239,6 +239,7 @@ const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1"
 let approxSizeMB = parseFloat(localStorage.getItem("dbSizeMB") || "0")
 let db
 let isCameraOpen = false
+ let backPressTime = 0
 function initDB(){
 return new Promise((resolve, reject)=>{
 let request = indexedDB.open("SiteValidatorDB", 2) // version bump
@@ -1774,26 +1775,39 @@ if(data.validationMeta?.started){
 }
 
 })
- window.addEventListener("popstate", function(event){
+window.addEventListener("popstate", function(event){
 
+    // 🔥 CAMERA HANDLING FIRST
     if(isCameraOpen){
 
-        console.log("Back pressed → closing camera")
-
         let overlay = document.querySelector("div[style*='z-index: 9999']")
-
         if(overlay){
             overlay.remove()
         }
 
         isCameraOpen = false
 
-        // 🔥 PREVENT EXIT
         history.pushState(null, "")
+        return
+    }
 
+    // 🔥 EXIT CONTROL
+    if(data.validationMeta?.started){
+
+        let now = Date.now()
+
+        if(now - backPressTime < 1500){
+            // ✅ EXIT
+            window.onbeforeunload = null
+            history.back()
+        }else{
+            // ❌ STAY
+            alert("Press back again to exit")
+            backPressTime = now
+            history.pushState(null, "")
+        }
     }
 })
-
 // 🔥 HANDLE SERVICE WORKER FORCE RELOAD
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener("message", event => {
