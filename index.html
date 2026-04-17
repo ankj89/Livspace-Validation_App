@@ -913,29 +913,50 @@ let r = data.rooms[room]
 // 🔥 CHECK IF ROOM HAS ANY DATA
 let hasData = false
 
-// Room answers
 roomQuestions.forEach(q=>{
     if(r.room[q]) hasData = true
 })
 
-// Wall answers
 wallQuestions.forEach(q=>{
     if(r.wall[q]) hasData = true
 })
 
-// Measurements
 Object.values(r.measurement || {}).forEach(val=>{
-    if(val) hasData = true
+    if(val !== "" && val !== null && val !== undefined){
+        hasData = true
+    }
 })
 
-// (Optional) Photos
 Object.values(r.photos || {}).forEach(arr=>{
     if(arr && arr.length > 0) hasData = true
 })
 
-// ❌ SKIP EMPTY ROOM
 if(!hasData) return
+
+/* ✅ BUILD ROW */
+let row = { Room: room }
+
+/* ROOM ANSWERS */
+roomQuestions.forEach(q=>{
+    row[q] = r.room[q] || ""
 })
+
+/* WALL ANSWERS */
+wallQuestions.forEach(q=>{
+    row[q] = r.wall[q] || ""
+})
+
+/* MEASUREMENTS */
+Object.keys(r.measurement || {}).forEach(k=>{
+    row[k] = r.measurement[k] || ""
+})
+
+rows.push(row)
+
+})
+
+
+ 
 let wb = XLSX.utils.book_new()
 
 let ws = XLSX.utils.json_to_sheet(rows)
