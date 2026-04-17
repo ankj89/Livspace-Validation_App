@@ -150,8 +150,8 @@ const walls=["NW","EW","SW","WW"]
 
 const measurementFields = [
 /* 🔥 NEW ADDITIONS */
-{label:"Available door height (mm)", key:"doorheight"},
-{label:"Available door width (mm)", key:"doorwidth"},  
+{label:"Available max door height (mm)", key:"doorheight"},
+{label:"Available max door width (mm)", key:"doorwidth"},  
 /* FLOOR TO CEILING */
 {label:"Floor to Ceiling - Corner 1 (mm)", key:"fc1"},
 {label:"Floor to Ceiling - Corner 2 (mm)", key:"fc2"},
@@ -163,21 +163,26 @@ const measurementFields = [
 {label:"Room Diagonal 1 (mm)", key:"diag1"},
 {label:"Room Diagonal 2 (mm)", key:"diag2"},
 /* Opp wall pair */
-/* ORTHOGONALITY CHECK - DIRECTION 1 */
-{label:"Wall Pair 1 - Corner 1 (mm)", key:"wp1_c1"},
-{label:"Wall Pair 1 - Center (mm)", key:"wp1_mid"},
-{label:"Wall Pair 1 - Corner 2 (mm)", key:"wp1_c2"},
-/* Opp wall pair */
-/* ORTHOGONALITY CHECK - DIRECTION 2 */
-{label:"Wall Pair 2 - Corner 1 (mm)", key:"wp2_c1"},
-{label:"Wall Pair 2 - Center (mm)", key:"wp2_mid"},
-{label:"Wall Pair 2 - Corner 2 (mm)", key:"wp2_c2"},
- 
-/* WALL UNDULATION */
-{label:"Wall Undulation NW (mm)", key:"undNW"},
-{label:"Wall Undulation EW (mm)", key:"undEW"},
-{label:"Wall Undulation SW (mm)", key:"undSW"},
-{label:"Wall Undulation WW (mm)", key:"undWW"},
+/* ORTHOGONALITY */
+{label:"WP1 Corner 1 (NW->SW)", key:"wp1_c1"},
+{label:"WP1 Center (NW->SW)", key:"wp1_mid"},
+{label:"WP1 Corner 2 (NW->SW)", key:"wp1_c2"},
+
+{label:"WP2 Corner 1 (EW->WW)", key:"wp2_c1"},
+{label:"WP2 Center (EW->WW)", key:"wp2_mid"},
+{label:"WP2 Corner 2 (EW->WW)", key:"wp2_c2"},
+
+/* WALL CENTER (1200mm) */
+{label:"NW Center (offset)", key:"NW_M"},
+{label:"EW Center (offset)", key:"EW_M"},
+{label:"SW Center (offset)", key:"SW_M"},
+{label:"WW Center (offset)", key:"WW_M"},
+
+/* WALL UPPER (~1800mm) */
+{label:"NW Upper (offset)", key:"NW_U"},
+{label:"EW Upper (offset)", key:"EW_U"},
+{label:"SW Upper (offset)", key:"SW_U"},
+{label:"WW Upper (offset)", key:"WW_U"},
 
 /* CEILING UTILITIES */
 {label:"Beam Bottom to Floor (mm)", key:"beamFloor"},
