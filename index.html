@@ -133,12 +133,12 @@ const societyQuestions = [
 /* EXECUTION */
 {key:"waterPoint", label:"Is there an active water supply point at site location?", category:"Execution Constraints", options:["Yes","No"]},
 {key:"electricPoint", label:"Is there an active power supply at site location?", category:"Execution Constraints", options:["Yes","No"]},
- {key:"gassline", label:"Is there CNG gas line installed at site location?", category:"Execution Constraints", options:["Yes","No"]}, 
+ {key:"gassline", label:"Is there LPG gas line installed at site location?", category:"Execution Constraints", options:["Yes","No"]}, 
  {key:"dgbackup", label:"Is there avaiability of DG/power backup?", category:"Execution Constraints", options:["Yes","No"]}, 
 {key:"workNOC", label:"Is builder/scoiety permission required to start the work?", category:"Execution Constraints", options:["Yes","No"]},
 {key:"workNOCpolice", label:"Is police verification required for labours?", category:"Execution Constraints", options:["Yes","No"]},  
 {key:"societyWorktimings", label:"Permissible work days and timings", category:"Execution Constraints", type:"textarea"},
-
+{key:"cxstay", label:"Will cx stay during execution?", category:"Execution Constraints",options:["Yes","No"]},
 /* MATERIAL */
 {key:"societyRestrictions", label:"Other restrictions on material/specification mandated by builder/society?", category:"Material Specification Constraint", type:"textarea"},
 {key:"faciaRestrictions", label:"Can we do modification on external walls in corridor or facia of building?", category:"Material Specification Constraint", options:["Yes","No"]},
@@ -1010,16 +1010,13 @@ let canvas = document.createElement("canvas")
 let ctx = canvas.getContext("2d")
 
 // 🔥 REDUCE SIZE (VERY IMPORTANT FOR MOBILE)
-let maxWidth = 800
-let scale = maxWidth / img.width
-
-canvas.width = maxWidth
-canvas.height = img.height * scale
+canvas.width = img.width
+canvas.height = img.height
 
 ctx.drawImage(img,0,0,canvas.width,canvas.height)
 
 // 🔥 COMPRESS IMAGE
-let compressed = canvas.toDataURL("image/jpeg", 0.4)
+let compressed = canvas.toDataURL("image/jpeg", 0.5)
 
 // 🔥 CLEAN MEMORY
 URL.revokeObjectURL(url)
@@ -1061,7 +1058,7 @@ history.pushState({ editor: true }, "")
 let canvas = overlay.querySelector("#editorCanvas")
 let ctx = canvas.getContext("2d")
 
-canvas.style.touchAction = "none"
+canvas.style.touchAction = "autp"
   /* CLOSE */
 overlay.querySelector("#closeBtn").onclick = () => {
     document.body.style.overflow = "auto"
@@ -1150,8 +1147,8 @@ document.body.removeChild(overlay)
 }
 
 img.onload = ()=>{
-canvas.width = img.width*0.9
-canvas.height = img.height*0.9
+canvas.width = img.width
+canvas.height = img.height
 
 canvas.style.width = "100%"
 canvas.style.height = "auto"
@@ -1427,7 +1424,10 @@ async function openCamera(surface, room){
 
         try{
             let stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" }
+                video: {
+  facingMode: "environment",
+  aspectRatio: 16/9
+}
             })
 
             let overlay = document.createElement("div")
@@ -1440,7 +1440,12 @@ async function openCamera(surface, room){
             overlay.style.zIndex = 9999
 
             overlay.innerHTML = `
-                <video autoplay playsinline style="width:100%"></video>
+             <video autoplay playsinline 
+style="
+width:100%;
+height:100%;
+object-fit:cover;
+"></video>
                 <div style="position:fixed;bottom:20px;width:100%;text-align:center;">
                     <button id="captureBtn">Capture</button>
                     <button id="closeCam">Close</button>
@@ -1458,12 +1463,31 @@ async function openCamera(surface, room){
 
             overlay.querySelector("#captureBtn").onclick = () => {
 
-                let canvas = document.createElement("canvas")
-                canvas.width = video.videoWidth
-                canvas.height = video.videoHeight
+          let canvas = document.createElement("canvas")
+let videoRatio = video.videoWidth / video.videoHeight
+let screenRatio = window.innerWidth / window.innerHeight
+
+let sx, sy, sw, sh
+
+if(videoRatio > screenRatio){
+    // video wider → crop sides
+    sh = video.videoHeight
+    sw = sh * screenRatio
+    sx = (video.videoWidth - sw) / 2
+    sy = 0
+}else{
+    // video taller → crop top/bottom
+    sw = video.videoWidth
+    sh = sw / screenRatio
+    sx = 0
+    sy = (video.videoHeight - sh) / 2
+}
+
+canvas.width = sw
+canvas.height = sh     
 
                 let ctx = canvas.getContext("2d")
-                ctx.drawImage(video, 0, 0)
+ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
 
                 let img = canvas.toDataURL("image/jpeg", 0.7)
 
