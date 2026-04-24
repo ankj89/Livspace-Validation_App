@@ -1572,6 +1572,7 @@ if(img.width > 2000){
  
 let canvas = document.createElement("canvas")
 let ctx = canvas.getContext("2d")
+ canvas.style.touchAction = "none"
 
 // 🔥 REDUCE SIZE (VERY IMPORTANT FOR MOBILE)
 canvas.width = img.width
@@ -1651,22 +1652,45 @@ async function openEditorDirect(imgSrc, surface, room, index=null){
     }
 
     canvas.addEventListener("pointerdown", e=>{
-        if(mode==="draw"){
-            drawing=true
-            let p=getPos(e)
-            ctx.beginPath()
-            ctx.moveTo(p.x,p.y)
-        }
-        else if(mode==="text"){
+
+    e.preventDefault()
+    e.stopPropagation()
+
+    if(mode==="draw"){
+        drawing = true
+        let p = getPos(e)
+
+        ctx.beginPath()
+        ctx.moveTo(p.x, p.y)
+    }
+
+    if(mode==="text"){
+
+        // 🔥 TEMP DISABLE CANVAS INTERACTION
+        canvas.style.pointerEvents = "none"
+
+        setTimeout(()=>{
+
             let txt = prompt("Enter note")
+
             if(txt){
-                let p=getPos(e)
-                ctx.fillStyle="red"
-                ctx.font="24px Arial"
-                ctx.fillText(txt,p.x,p.y)
+                let p = getPos(e)
+
+                ctx.fillStyle = "red"
+                ctx.font = "24px Arial"
+                ctx.fillText(txt, p.x, p.y)
             }
-        }
-    })
+
+            // 🔥 RESET EVERYTHING
+            drawing = false
+            ctx.closePath()
+
+            // 🔥 RE-ENABLE CANVAS
+            canvas.style.pointerEvents = "auto"
+
+        }, 100)
+    }
+})
 
     canvas.addEventListener("pointermove", e=>{
         if(!drawing) return
@@ -1677,10 +1701,19 @@ async function openEditorDirect(imgSrc, surface, room, index=null){
         ctx.stroke()
     })
 
-    canvas.addEventListener("pointerup", ()=>{
-        drawing=false
-        ctx.closePath()
-    })
+ canvas.addEventListener("pointerup", ()=>{
+    drawing = false
+    ctx.closePath()
+})
+
+canvas.addEventListener("pointercancel", ()=>{
+    drawing = false
+    ctx.closePath()
+})
+
+canvas.addEventListener("pointerleave", ()=>{
+    drawing = false
+})
 
     overlay.querySelector("#drawBtn").onclick = ()=>mode="draw"
     overlay.querySelector("#textBtn").onclick = ()=>mode="text"
