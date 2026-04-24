@@ -589,7 +589,13 @@ if(!data.rooms[r]){
 
 }
 
- 
+ function getTouchPos(touch){
+    let r = canvas.getBoundingClientRect()
+    return {
+        x:(touch.clientX - r.left) * (canvas.width / r.width),
+        y:(touch.clientY - r.top) * (canvas.height / r.height)
+    }
+}
 function ensureValidationMeta(){
     if(!data.validationMeta){
         data.validationMeta = {
@@ -1732,6 +1738,45 @@ canvas.addEventListener("pointercancel", ()=>{
 canvas.addEventListener("pointerleave", ()=>{
     drawing = false
     activePointerId = null
+})
+
+ canvas.addEventListener("touchstart", e=>{
+
+    e.preventDefault()
+
+    let t = e.touches[0]
+    let p = getTouchPos(t)
+
+    drawing = true
+    lastX = p.x
+    lastY = p.y
+})
+
+canvas.addEventListener("touchmove", e=>{
+
+    if(!drawing) return
+
+    e.preventDefault()
+
+    let t = e.touches[0]
+    let p = getTouchPos(t)
+
+    ctx.beginPath()
+    ctx.moveTo(lastX, lastY)
+    ctx.lineTo(p.x, p.y)
+
+    ctx.strokeStyle = "red"
+    ctx.lineWidth = 4
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.stroke()
+
+    lastX = p.x
+    lastY = p.y
+})
+
+canvas.addEventListener("touchend", ()=>{
+    drawing = false
 })
 
     overlay.querySelector("#drawBtn").onclick = ()=>{
