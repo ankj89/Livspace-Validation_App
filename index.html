@@ -1657,12 +1657,15 @@ async function openEditorDirect(imgSrc, surface, room, index=null){
     e.stopPropagation()
 
     if(mode==="draw"){
-        drawing = true
-        let p = getPos(e)
 
-        ctx.beginPath()
-        ctx.moveTo(p.x, p.y)
-    }
+    drawing = true
+
+    let p = getPos(e)
+
+    // 🔥 FIX: always reset path cleanly
+    ctx.beginPath()
+    ctx.moveTo(p.x, p.y)
+}
 
     if(mode==="text"){
 
@@ -1692,18 +1695,25 @@ async function openEditorDirect(imgSrc, surface, room, index=null){
     }
 })
 
-    canvas.addEventListener("pointermove", e=>{
-        if(!drawing) return
-        let p=getPos(e)
-        ctx.lineTo(p.x,p.y)
-        ctx.strokeStyle="red"
-        ctx.lineWidth=4
-        ctx.stroke()
-    })
+   canvas.addEventListener("pointermove", e=>{
 
- canvas.addEventListener("pointerup", ()=>{
+    if(!drawing) return
+
+    e.preventDefault()
+
+    let p = getPos(e)
+
+    ctx.lineTo(p.x, p.y)
+    ctx.strokeStyle = "red"
+    ctx.lineWidth = 4
+    ctx.lineCap = "round"
+    ctx.stroke()
+})
+
+canvas.addEventListener("pointerup", ()=>{
     drawing = false
     ctx.closePath()
+    ctx.beginPath()   // 🔥 FIX
 })
 
 canvas.addEventListener("pointercancel", ()=>{
@@ -1715,7 +1725,14 @@ canvas.addEventListener("pointerleave", ()=>{
     drawing = false
 })
 
-    overlay.querySelector("#drawBtn").onclick = ()=>mode="draw"
+    overlay.querySelector("#drawBtn").onclick = ()=>{
+
+    mode = "draw"
+
+    // 🔥 CRITICAL FIX
+    drawing = false
+    ctx.beginPath()
+}
     overlay.querySelector("#textBtn").onclick = ()=>mode="text"
 
     overlay.querySelector("#closeBtn").onclick = ()=>{
