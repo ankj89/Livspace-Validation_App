@@ -4,7 +4,7 @@
  <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e3d8f">
  <meta name="app-version" content="v1.3.2">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Livspace-Site Validation Tool 1.3</title>
 
 <script src="xlsx.full.min.js"></script>
@@ -1606,11 +1606,23 @@ overlay.style.background = "#000"
 overlay.style.zIndex = 9999
 
 overlay.innerHTML = `
-<div style="position:absolute;top:10px;left:10px;z-index:10;">
-<button id="drawBtn">Draw</button>
-<button id="textBtn">Text</button>
-<button id="saveBtn">Save</button>
-<button id="closeBtn">Close</button>
+<div style="
+position:fixed;
+top:env(safe-area-inset-top,10px);
+left:0;
+width:100%;
+z-index:10001;
+display:flex;
+justify-content:center;
+gap:8px;
+background:rgba(0,0,0,0.6);
+padding:10px;
+flex-wrap:wrap;
+">
+<button id="drawBtn" style="padding:10px 14px;">✏️ Draw</button>
+<button id="textBtn" style="padding:10px 14px;">🔤 Text</button>
+<button id="saveBtn" style="padding:10px 14px;background:#28a745;">💾 Save</button>
+<button id="closeBtn" style="padding:10px 14px;background:#dc3545;">✕ Close</button>
 </div>
 
 <canvas id="editorCanvas"></canvas>
@@ -1719,6 +1731,7 @@ img.onload = ()=>{
 
     canvas.style.width = "100%"
     canvas.style.height = "auto"
+ canvas.style.marginTop = "70px"
 
     // 🔥 RESET ANY OLD TRANSFORMS
     ctx.setTransform(1,0,0,1,0,0)
@@ -2018,6 +2031,8 @@ async function openCamera(surface, room){
             overlay.style.height = "100%"
             overlay.style.background = "#000"
             overlay.style.zIndex = 9999
+         overlay.style.display = "flex"
+overlay.style.flexDirection = "column"
 
             overlay.innerHTML = `
              <video autoplay playsinline 
