@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
+ <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e3d8f">
+ <meta name="app-version" content="v1.3.2">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Livspace-Site Validation Tool</title>
+<title>Livspace-Site Validation Tool 1.3</title>
 
-<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-
+<script src="xlsx.full.min.js"></script>
+<script src="jszip.min.js"></script>
 <style>
 body{font-family:Arial;margin:0;background:#f4f6fb}
 header{background:#1e3d8f;color:white;padding:14px;font-size:18px}
@@ -47,7 +50,7 @@ button{padding:8px 12px;border:none;background:#1e3d8f;color:white;border-radius
 
 <body>
 
-<header>Livspace - Site Validation Tool</header>
+<header>Livspace - Site Validation Tool 1.2</header>
 
 <div class="container">
 
@@ -130,12 +133,12 @@ const societyQuestions = [
 /* EXECUTION */
 {key:"waterPoint", label:"Is there an active water supply point at site location?", category:"Execution Constraints", options:["Yes","No"]},
 {key:"electricPoint", label:"Is there an active power supply at site location?", category:"Execution Constraints", options:["Yes","No"]},
- {key:"gassline", label:"Is there CNG gas line installed at site location?", category:"Execution Constraints", options:["Yes","No"]}, 
+ {key:"gassline", label:"Is there LPG gas line installed at site location?", category:"Execution Constraints", options:["Yes","No"]}, 
  {key:"dgbackup", label:"Is there avaiability of DG/power backup?", category:"Execution Constraints", options:["Yes","No"]}, 
 {key:"workNOC", label:"Is builder/scoiety permission required to start the work?", category:"Execution Constraints", options:["Yes","No"]},
 {key:"workNOCpolice", label:"Is police verification required for labours?", category:"Execution Constraints", options:["Yes","No"]},  
 {key:"societyWorktimings", label:"Permissible work days and timings", category:"Execution Constraints", type:"textarea"},
-
+{key:"cxstay", label:"Will cx stay during execution?", category:"Execution Constraints",options:["Yes","No"]},
 /* MATERIAL */
 {key:"societyRestrictions", label:"Other restrictions on material/specification mandated by builder/society?", category:"Material Specification Constraint", type:"textarea"},
 {key:"faciaRestrictions", label:"Can we do modification on external walls in corridor or facia of building?", category:"Material Specification Constraint", options:["Yes","No"]},
@@ -147,8 +150,8 @@ const walls=["NW","EW","SW","WW"]
 
 const measurementFields = [
 /* 🔥 NEW ADDITIONS */
-{label:"Available door height (mm)", key:"doorheight"},
-{label:"Available door width (mm)", key:"doorwidth"},  
+{label:"Available max door height (mm)", key:"doorheight"},
+{label:"Available max door width (mm)", key:"doorwidth"},  
 /* FLOOR TO CEILING */
 {label:"Floor to Ceiling - Corner 1 (mm)", key:"fc1"},
 {label:"Floor to Ceiling - Corner 2 (mm)", key:"fc2"},
@@ -159,12 +162,27 @@ const measurementFields = [
 /* ROOM DIAGONALS */
 {label:"Room Diagonal 1 (mm)", key:"diag1"},
 {label:"Room Diagonal 2 (mm)", key:"diag2"},
+/* Opp wall pair */
+/* ORTHOGONALITY */
+{label:"WP1 Corner 1 (NW->SW)", key:"wp1_c1"},
+{label:"WP1 Center (NW->SW)", key:"wp1_mid"},
+{label:"WP1 Corner 2 (NW->SW)", key:"wp1_c2"},
 
-/* WALL UNDULATION */
-{label:"Wall Undulation NW (mm)", key:"undNW"},
-{label:"Wall Undulation EW (mm)", key:"undEW"},
-{label:"Wall Undulation SW (mm)", key:"undSW"},
-{label:"Wall Undulation WW (mm)", key:"undWW"},
+{label:"WP2 Corner 1 (EW->WW)", key:"wp2_c1"},
+{label:"WP2 Center (EW->WW)", key:"wp2_mid"},
+{label:"WP2 Corner 2 (EW->WW)", key:"wp2_c2"},
+
+/* WALL CENTER (1200mm) */
+{label:"NW Center (offset)", key:"NW_M"},
+{label:"EW Center (offset)", key:"EW_M"},
+{label:"SW Center (offset)", key:"SW_M"},
+{label:"WW Center (offset)", key:"WW_M"},
+
+/* WALL UPPER (~1800mm) */
+{label:"NW Upper (offset)", key:"NW_U"},
+{label:"EW Upper (offset)", key:"EW_U"},
+{label:"SW Upper (offset)", key:"SW_U"},
+{label:"WW Upper (offset)", key:"WW_U"},
 
 /* CEILING UTILITIES */
 {label:"Beam Bottom to Floor (mm)", key:"beamFloor"},
@@ -235,16 +253,22 @@ const wallQuestions=["Is the wall a load-bearing wall/mivan construction/sheer w
 const defaultRooms=["Living Room","Kitchen","Bedroom 1","Bedroom 2","Bathroom 1","Bathroom 2","Balcony"]
 let approxSizeMB = parseFloat(localStorage.getItem("dbSizeMB") || "0")
 let db
-
+let isCameraOpen = false
+ let backPressTime = 0
 function initDB(){
 return new Promise((resolve, reject)=>{
-let request = indexedDB.open("SiteValidatorDB", 1)
+let request = indexedDB.open("SiteValidatorDB", 2) // version bump
 
 request.onupgradeneeded = function(e){
 db = e.target.result
 
 if(!db.objectStoreNames.contains("photos")){
 db.createObjectStore("photos", { keyPath: "id" })
+}
+
+// ✅ NEW STORE
+if(!db.objectStoreNames.contains("appData")){
+db.createObjectStore("appData", { keyPath: "id" })
 }
 }
 
@@ -255,7 +279,8 @@ resolve()
 
 request.onerror = reject
 })
-}  
+}
+
   
 let roomOrder=[...defaultRooms]
 let data = JSON.parse(localStorage.getItem("validatorData") || "null")
@@ -300,6 +325,17 @@ function ensureValidationMeta(){
 }  
 
 function saveData(){
+let size = new Blob([JSON.stringify(data)]).size / (1024*1024)
+
+if(size > 10){
+    alert("⚠️ Large project data. Avoid closing or refreshing frequently.")
+}
+ 
+if(!db){
+    console.warn("DB not ready, retrying...")
+    setTimeout(saveData, 300)
+    return
+}
 data.project = {
     pid: document.getElementById("pid").value,
     cx: document.getElementById("cx").value,
@@ -309,14 +345,31 @@ data.project = {
     flat: document.getElementById("flat").value,
     floorNo: document.getElementById("floorNo").value
 }
-data.constraints={}
 
+data.constraints={}
+data.roomOrder = roomOrder
 societyQuestions.forEach(q=>{
 let el=document.getElementById(q.key)
 if(el) data.constraints[q.key]=el.value
 })
-localStorage.setItem("validatorData",JSON.stringify(data))
+
+// ✅ SAVE IN DB
+saveAppData()
 }
+
+function populateProjectDetails(){
+
+if(!data.project) return
+
+document.getElementById("pid").value = data.project.pid || ""
+document.getElementById("cx").value = data.project.cx || ""
+document.getElementById("city").value = data.project.city || ""
+document.getElementById("address").value = data.project.address || ""
+document.getElementById("society").value = data.project.society || ""
+document.getElementById("flat").value = data.project.flat || ""
+document.getElementById("floorNo").value = data.project.floorNo || ""
+} 
+ 
 function startValidation(){
    
     ensureValidationMeta()  // ✅ ADD THIS
@@ -348,8 +401,8 @@ if(!pidVal || !cxVal || !cityVal){
     renderTabs(defaultRooms[0])
     openRoom(defaultRooms[0])
 }
-function endValidation(){
-
+async function endValidation(){
+await new Promise(r => setTimeout(r, 300))
     if(!data.validationMeta.excelGenerated || !data.validationMeta.imagesDownloaded){
         alert("Please generate Excel and download images before ending validation")
         return
@@ -359,42 +412,125 @@ function endValidation(){
         return
     }
 
-    // 🔥 DELETE DB
-    indexedDB.deleteDatabase("SiteValidatorDB")
+    // 🔥 STOP unload warning
+    window.onbeforeunload = null
 
-    // 🔥 CLEAR STORAGE
-    localStorage.removeItem("validatorData")
-    localStorage.removeItem("dbSizeMB")
+    // 🔥 UI BLOCK
+    document.body.innerHTML = "<h2 style='text-align:center;margin-top:40px'>Finishing validation...</h2>"
 
-    // 🔥 RESET DATA
-    data = {
-        validationMeta: {
-            started: false,
-            ended: false,
-            excelGenerated: false,
-            imagesDownloaded: false
-        },
-        rooms: {}
-    }
+    try{
 
-    // 🔥 CLEAR INPUTS
-    ["pid","cx","city","address","society","flat","floorNo"].forEach(id=>{
-        let el = document.getElementById(id)
-        if(el){
-            el.value = ""
-            el.disabled = false
+        // 🔥 FORCE CLOSE DB CONNECTION
+        if(db){
+            db.close()
         }
-    })
 
-    // 🔥 FORCE UI RESET (THIS WAS MISSING)
-    renderAppSections()   // ⭐⭐⭐ CRITICAL LINE
+        // 🔥 UNREGISTER SERVICE WORKER (CRITICAL FIX)
+        if ('serviceWorker' in navigator) {
+            let regs = await navigator.serviceWorker.getRegistrations()
+            for(let reg of regs){
+                await reg.unregister()
+            }
+        }
 
-    document.getElementById("roomForm").innerHTML = ""
-    document.getElementById("roomTabs").innerHTML = ""
-    document.getElementById("societyForm").innerHTML = ""
+        // 🔥 DELETE DATABASE
+        let req = indexedDB.deleteDatabase("SiteValidatorDB")
 
-    alert("Reset successful ✅")
+        req.onsuccess = ()=>{
+            console.log("DB deleted")
+
+            localStorage.removeItem("dbSizeMB")
+
+         
+
+            location.href = location.origin + location.pathname
+        }
+
+        req.onerror = ()=>{
+            console.error("Delete failed")
+
+            // 🔥 FALLBACK RESET (VERY IMPORTANT)
+            localStorage.clear()
+
+            alert("Validation completed (fallback reset)")
+
+            location.href = location.origin + location.pathname
+        }
+
+        req.onblocked = ()=>{
+            console.warn("Still blocked — forcing reset")
+
+            // 🔥 FORCE RESET ANYWAY
+            localStorage.clear()
+
+            alert("Validation completed (forced reset)")
+
+            location.href = location.origin + location.pathname
+        }
+
+    }catch(err){
+        console.error(err)
+
+        // 🔥 LAST RESORT
+        localStorage.clear()
+
+        alert("Reset completed (safe mode)")
+
+        location.reload()
+    }
 }
+/* =========================
+   2. ADD SAVE FUNCTION
+========================= */
+function saveAppData(){
+return new Promise((resolve, reject)=>{
+
+try{
+
+let tx = db.transaction(["appData"], "readwrite")
+let store = tx.objectStore("appData")
+
+store.put({
+    id: "main",
+    data: data
+})
+
+tx.oncomplete = ()=>resolve()
+tx.onerror = (e)=>{
+    console.error("DB WRITE FAILED", e)
+    alert("⚠️ Data save failed. Please do not refresh. Try again.")
+    reject(e)
+}
+
+}catch(err){
+    console.error("DB ERROR", err)
+    alert("⚠️ Critical storage error")
+    reject(err)
+}
+
+})
+}
+/* =========================
+   3. ADD LOAD FUNCTION
+========================= */
+function loadAppData(){
+return new Promise((resolve, reject)=>{
+
+let tx = db.transaction(["appData"], "readonly")
+let store = tx.objectStore("appData")
+
+let req = store.get("main")
+
+req.onsuccess = ()=>{
+resolve(req.result ? req.result.data : null)
+}
+
+req.onerror = reject
+})
+}
+ 
+
+ 
 function renderAppSections(){
 if(!data.validationMeta || !data.validationMeta.started){
         document.getElementById("validationApp").style.display = "none"
@@ -442,14 +578,71 @@ const container = document.getElementById("roomTabs")
 
 container.innerHTML = roomOrder.map(r=>`
 <span class="roomTab" 
-style="${r===activeRoom ? 'background:#1e3d8f;color:white' : ''}"
-onclick="openRoom('${r}')">
-${r}
+style="${r===activeRoom ? 'background:#1e3d8f;color:white' : ''}">
+    
+<span onclick="openRoom('${r}')">${r}</span>
+
+<span onclick="renameRoom('${r}')" style="margin-left:6px;cursor:pointer;">✏️</span>
+
+<span onclick="deleteRoom('${r}')" style="margin-left:6px;color:red;cursor:pointer;">❌</span>
+
 </span>
 `).join("");
 
 }
+function calculateProgress(room){
 
+let r = data.rooms[room]
+let total = roomQuestions.length + wallQuestions.length
+let answered = 0
+
+roomQuestions.forEach(q=>{
+if(r.room[q]) answered++
+})
+
+wallQuestions.forEach(q=>{
+if(r.wall[q]) answered++
+})
+
+return Math.round((answered / total) * 100)
+} 
+function renameRoom(oldName){
+
+let newName = prompt("Enter new room name", oldName)
+if(!newName || newName === oldName) return
+
+if(data.rooms[newName]){
+    alert("Room already exists")
+    return
+}
+
+// move data
+data.rooms[newName] = data.rooms[oldName]
+delete data.rooms[oldName]
+
+// update order
+roomOrder = roomOrder.map(r => r === oldName ? newName : r)
+
+saveData()
+renderTabs(newName)
+openRoom(newName)
+}
+function deleteRoom(room){
+
+if(!confirm("Delete this room?")) return
+
+delete data.rooms[room]
+roomOrder = roomOrder.filter(r => r !== room)
+
+saveData()
+
+if(roomOrder.length){
+    renderTabs(roomOrder[0])
+    openRoom(roomOrder[0])
+}else{
+    document.getElementById("roomForm").innerHTML = ""
+}
+} 
 function scrollToNext(currentDiv){
 let all=document.querySelectorAll(".statusPending")
 for(let el of all){
@@ -492,12 +685,7 @@ div.appendChild(btn)
 return div
 }
 
-function applyAllWalls(value, room){
-const r=data.rooms[room]
-wallQuestions.forEach(q=>{r.wall[q]=value})
-saveData()
-openRoom(room)
-}
+
 
 function openRoom(room){
 if(data.validationMeta?.ended){
@@ -515,7 +703,17 @@ renderTabs(room)
 
 const container=document.getElementById("roomForm")
 container.innerHTML=""
+let progress = calculateProgress(room)
 
+let progressDiv = document.createElement("div")
+progressDiv.innerHTML = `
+<div>Progress: ${progress}%</div>
+<div class="progressBar">
+    <div class="progressFill" style="width:${progress}%"></div>
+</div>
+`
+
+container.appendChild(progressDiv)
 function createAccordion(title){
 let acc=document.createElement("div")
 acc.className="accordion"
@@ -540,10 +738,7 @@ return content
 /* WALL */
 let wallSection=createAccordion("Wall Questions")
 
-wallSection.innerHTML+=`
-<button onclick="applyAllWalls('Yes','${room}')">Apply Yes to All</button>
-<button onclick="applyAllWalls('No','${room}')">Apply No to All</button>
-`
+
 
 wallQuestions.forEach(q=>{
 let div=document.createElement("div")
@@ -655,22 +850,7 @@ let photoSection=createAccordion("Site Photographs")
 photoSection.setAttribute("data-section","photo")
 
 refreshPhotoSection(room) 
-/* ✅ NEXT ROOM BUTTON (CORRECT PLACE) */
-let index = roomOrder.indexOf(room)
 
-let nextBtn=document.createElement("button")
-
-if(index === roomOrder.length - 1){
-nextBtn.innerText="Finish ✔"
-}else{
-nextBtn.innerText=`Next: ${roomOrder[index+1]} →`
-}
-
-nextBtn.style.marginTop="10px"
-
-nextBtn.onclick=()=>goToNextRoom(room)
-
-container.appendChild(nextBtn)
 
 
   
@@ -724,43 +904,84 @@ photos:{NW:[],EW:[],SW:[],WW:[],Ceiling:[],Floor:[]}
 
 saveData()
 
-let rows=[]
+/* =========================
+   🔴 TAB 1: VALIDATION DATA (LEGACY FORMAT)
+========================= */
+
+let rows = []
 
 Object.keys(data.rooms).forEach(room=>{
 
 let r = data.rooms[room]
 
+let base = {
+    pid: data.project?.pid || "",
+    cx: data.project?.cx || "",
+    city: data.project?.city || "",
+    address: data.project?.address || "",
+    society: data.project?.society || "",
+    flat: data.project?.flat || "",
+    floorNo: data.project?.floorNo || "",
+    Room: room
+}
+
+/* WALL QUESTIONS */
 wallQuestions.forEach(q=>{
 rows.push({
-...data.project,
-Room: room,
-Section: "Wall",
-Item: q,
-Value: r.wall[q] || "",
-Walls: (r.wallSel[q] || []).join(","),
-Comments: r.wall[q+"-c"] || ""
+    ...base,
+    Section: "Wall",
+    Item: q,
+    Value: r.wall[q] || "",
+    Walls: (r.wallSel[q] || []).join(", "),
+    Comments: r.wall[q+"-c"] || ""
 })
 })
 
+/* ROOM QUESTIONS */
 roomQuestions.forEach(q=>{
 rows.push({
-...data.project,
-Room: room,
-Section: "Room",
-Item: q,
-Value: r.room[q] || "",
-Comments: r.room[q+"-c"] || ""
+    ...base,
+    Section: "Room",
+    Item: q,
+    Value: r.room[q] || "",
+    Walls: "",
+    Comments: r.room[q+"-c"] || ""
 })
 })
 
 })
+
+/* =========================
+   🔴 CREATE WORKBOOK
+========================= */
 
 let wb = XLSX.utils.book_new()
 
+/* TAB 1 */
 let ws = XLSX.utils.json_to_sheet(rows)
 XLSX.utils.book_append_sheet(wb, ws, "Validation Data")
 
-/* ✅ MEASUREMENT WITH TIMESTAMPS */
+/* =========================
+   🔴 TAB 2: SOCIETY CONSTRAINTS (AS YOU HAD)
+========================= */
+
+let constraintRows = []
+
+societyQuestions.forEach(q=>{
+constraintRows.push({
+Category: q.category,
+Question: q.label,
+Value: (data.constraints && data.constraints[q.key]) || ""
+})
+})
+
+let ws2 = XLSX.utils.json_to_sheet(constraintRows)
+XLSX.utils.book_append_sheet(wb, ws2, "Society Constraints")
+
+/* =========================
+   🔴 TAB 3: MEASUREMENTS
+========================= */
+
 let measureRows=[]
 
 Object.keys(data.rooms).forEach(room=>{
@@ -768,6 +989,8 @@ Object.keys(data.rooms).forEach(room=>{
 let m = data.rooms[room].measurement || {}
 
 let row = { 
+    pid: data.project?.pid || "",
+    cx: data.project?.cx || "",
     Room: room,
     Validation_Start: data.validationMeta?.startTime || "",
     Validation_End: data.validationMeta?.endTime || ""
@@ -781,39 +1004,46 @@ measureRows.push(row)
 
 })
 
-let ws2 = XLSX.utils.json_to_sheet(measureRows)
-XLSX.utils.book_append_sheet(wb, ws2, "Measurements")
+let ws3 = XLSX.utils.json_to_sheet(measureRows)
+XLSX.utils.book_append_sheet(wb, ws3, "Measurements")
 
-/* ✅ SUMMARY SHEET */
+/* =========================
+   🔴 TAB 4: SUMMARY
+========================= */
+
 let summary = [{
 PID: data.project?.pid || "",
 Cx: data.project?.cx || "",
+City: data.project?.city || "",
 Start_Time: data.validationMeta?.startTime || "",
 End_Time: data.validationMeta?.endTime || ""
 }]
 
-let wsSummary = XLSX.utils.json_to_sheet(summary)
-XLSX.utils.book_append_sheet(wb, wsSummary, "Summary")
+let ws4 = XLSX.utils.json_to_sheet(summary)
+XLSX.utils.book_append_sheet(wb, ws4, "Summary")
 
-/* CONSTRAINTS */
-let constraintRows = []
+/* =========================
+   🔴 FILE NAME
+========================= */
 
-societyQuestions.forEach(q=>{
-constraintRows.push({
-Category: q.category,
-Question: q.label,
-Value: (data.constraints && data.constraints[q.key]) || ""
-})
-})
+let pid = data.project?.pid || "PID"
+let cx = data.project?.cx || "Cx"
 
-let ws3 = XLSX.utils.json_to_sheet(constraintRows)
-XLSX.utils.book_append_sheet(wb, ws3, "Society Constraints")
+pid = pid.replace(/[^a-zA-Z0-9]/g, "_")
+cx = cx.replace(/[^a-zA-Z0-9]/g, "_")
 
-XLSX.writeFile(wb, "site_validation.xlsx")
+let fileName = `${pid}_${cx}_site_validation_data.xlsx`
+
+XLSX.writeFile(wb, fileName)
+
+/* =========================
+   🔴 FLAGS
+========================= */
 
 data.validationMeta.excelGenerated = true
 saveData()
 renderAppSections()
+
 }
 
 function processImage(file, surface, room){
@@ -826,21 +1056,22 @@ let url = URL.createObjectURL(file)
 img.src = url
 
 img.onload = function(){
-
+if(img.width > 2000){
+    alert("Image too large. Please reduce camera resolution.")
+    return
+}
+ 
 let canvas = document.createElement("canvas")
 let ctx = canvas.getContext("2d")
 
 // 🔥 REDUCE SIZE (VERY IMPORTANT FOR MOBILE)
-let maxWidth = 800
-let scale = maxWidth / img.width
-
-canvas.width = maxWidth
-canvas.height = img.height * scale
+canvas.width = img.width
+canvas.height = img.height
 
 ctx.drawImage(img,0,0,canvas.width,canvas.height)
 
 // 🔥 COMPRESS IMAGE
-let compressed = canvas.toDataURL("image/jpeg", 0.4)
+let compressed = canvas.toDataURL("image/jpeg", 0.5)
 
 // 🔥 CLEAN MEMORY
 URL.revokeObjectURL(url)
@@ -852,9 +1083,7 @@ openEditorDirect(compressed, surface, room)
 }
   
 async function openEditorDirect(imgSrc, surface, room, index = null){
-if(document.getElementById("editorCanvas")){
-return
-}
+
 
 document.body.style.overflow = "hidden"
 
@@ -879,25 +1108,40 @@ overlay.innerHTML = `
 `
 
 document.body.appendChild(overlay)
+ isCameraOpen = true
+history.pushState({ editor: true }, "")
 let canvas = overlay.querySelector("#editorCanvas")
 let ctx = canvas.getContext("2d")
 
 canvas.style.touchAction = "none"
+canvas.addEventListener("touchstart", e => e.preventDefault(), { passive:false })
+canvas.addEventListener("touchmove", e => e.preventDefault(), { passive:false })
+ 
   /* CLOSE */
 overlay.querySelector("#closeBtn").onclick = () => {
-document.body.style.overflow = "auto"
-canvas.replaceWith(canvas.cloneNode(true))
-document.body.removeChild(overlay)
+    document.body.style.overflow = "auto"
+    canvas.replaceWith(canvas.cloneNode(true))
+    document.body.removeChild(overlay)
+
+    isCameraOpen = false
+
+   
 }
+
   
 /* SAVE */
 
 overlay.querySelector("#saveBtn").onclick = async () => {
 
-if(approxSizeMB > 80){
-alert("Storage almost full. Please delete some images.")
-return
-} 
+    // 🔥 ENSURE DB IS READY (ADD THIS)
+    if(!db){
+        await initDB()
+    }
+
+    if(approxSizeMB > 80){
+        alert("Storage almost full. Please delete some images.")
+        return
+    }
 let btn = overlay.querySelector("#saveBtn")
 btn.innerText = "Saving..."
 btn.disabled = true
@@ -905,6 +1149,7 @@ btn.disabled = true
 try{
 
 let finalImg = canvas.toDataURL("image/jpeg", 0.7)
+
 
 let id = "img_" + Date.now()
 
@@ -939,15 +1184,12 @@ btn.disabled = false
 let mode = "draw"
 let drawing = false
 function getCoords(e){
-const rect = canvas.getBoundingClientRect()
+    const rect = canvas.getBoundingClientRect()
 
-const scaleX = canvas.width / rect.width
-const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width)
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height)
 
-return {
-x: (e.clientX - rect.left) * scaleX,
-y: (e.clientY - rect.top) * scaleY
-}
+    return { x, y }
 }
 /* LOAD IMAGE */
 let img = new Image()
@@ -959,13 +1201,18 @@ document.body.removeChild(overlay)
 }
 
 img.onload = ()=>{
-canvas.width = img.width*0.9
-canvas.height = img.height*0.9
 
-canvas.style.width = "100%"
-canvas.style.height = "auto"
+    // ✅ Match canvas EXACTLY to displayed size
+    canvas.width = img.width
+    canvas.height = img.height
 
-ctx.drawImage(img, 0, 0)
+    canvas.style.width = "100%"
+    canvas.style.height = "auto"
+
+    // 🔥 RESET ANY OLD TRANSFORMS
+    ctx.setTransform(1,0,0,1,0,0)
+
+    ctx.drawImage(img, 0, 0)
 }
 
 /* BUTTONS */
@@ -973,54 +1220,68 @@ overlay.querySelector("#drawBtn").onclick = () => mode = "draw"
 overlay.querySelector("#textBtn").onclick = () => mode = "text"
 
 /* DRAW (WORKS ON MOBILE + DESKTOP) */
+
+
 canvas.addEventListener("pointerdown", (e)=>{
-if(mode !== "draw") return
+    if(mode !== "draw") return
 
-drawing = true
-canvas.setPointerCapture(e.pointerId)
+    drawing = true
 
-ctx.beginPath()
-let p = getCoords(e)
-ctx.moveTo(p.x, p.y)
+    const p = getCoords(e)
+
+    ctx.beginPath()
+    ctx.moveTo(p.x, p.y)
 })
 
 canvas.addEventListener("pointermove", (e)=>{
-if(!drawing || mode !== "draw") return
+    if(!drawing || mode !== "draw") return
 
-ctx.lineCap = "round"
-ctx.lineJoin = "round"
-ctx.strokeStyle = "red"
-ctx.lineWidth = 15
+    const p = getCoords(e)
 
-let p = getCoords(e)
+    ctx.lineTo(p.x, p.y)
 
-ctx.lineTo(p.x, p.y)
-ctx.stroke()
+    ctx.strokeStyle = "red"
+    ctx.lineWidth = 4
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
 
-ctx.beginPath()
-ctx.moveTo(p.x, p.y)
+    ctx.stroke()
 })
 
-canvas.addEventListener("pointerup", (e)=>{
-drawing = false
-try{ canvas.releasePointerCapture(e.pointerId) }catch(err){}
+canvas.addEventListener("pointerup", ()=>{
+    drawing = false
+    ctx.closePath()
 })
 
 canvas.addEventListener("pointercancel", ()=>{
-drawing = false
+    drawing = false
+    ctx.closePath()
 })
 
+
+ 
+
 /* TEXT */
-canvas.addEventListener("click", (e)=>{
-if(mode === "text"){
-let txt = prompt("Enter note")
-if(txt){
-ctx.fillStyle = "red"
-ctx.font = "68px Arial"
-let p = getCoords(e)
-ctx.fillText(txt, p.x, p.y)
-}
-}
+canvas.addEventListener("pointerdown", (e)=>{
+
+    if(mode !== "text") return
+
+    // 🔥 STOP DRAW FROM ALSO TRIGGERING
+    e.preventDefault()
+
+    let txt = prompt("Enter note")
+
+    if(txt){
+
+        const p = getCoords(e)
+
+        ctx.fillStyle = "red"
+        ctx.font = `${Math.max(20, canvas.width / 25)}px Arial`
+        ctx.textBaseline = "top"
+
+        ctx.fillText(txt, p.x, p.y)
+    }
+
 })
 
 
@@ -1051,7 +1312,7 @@ if(!data.rooms[name]){
 }
 
 roomOrder.push(name)
-
+data.roomOrder = roomOrder
 // ✅ FIX: re-render + open new room
 renderTabs(name)
 openRoom(name)
@@ -1157,12 +1418,196 @@ container.appendChild(div)
 })
 
 }
-function openCamera(surface, room){
+function startVersionWatcher(){
 
+    setTimeout(async ()=>{
+
+        try{
+            let res = await fetch("version.txt?v=" + Date.now())
+            let serverVersion = (await res.text()).trim()
+
+            let localVersion = localStorage.getItem("appVersion")
+
+            console.log("INIT CHECK → LOCAL:", localVersion, "SERVER:", serverVersion)
+
+            // 🔥 FIRST TIME SYNC
+            if(!localVersion){
+                localStorage.setItem("appVersion", serverVersion)
+                return
+            }
+
+            // 🔥 IF DIFFERENT → TRIGGER UPDATE
+            if(serverVersion !== localVersion){
+                showUpdateBanner(serverVersion)
+            }
+
+        }catch(err){
+            console.log("Initial version check failed", err)
+        }
+
+    }, 1000)
+
+
+    // 🔁 CONTINUOUS WATCH
+    setInterval(async ()=>{
+
+        try{
+            let res = await fetch("version.txt?v=" + Date.now())
+            let newVersion = (await res.text()).trim()
+
+            let oldVersion = localStorage.getItem("appVersion")
+
+            console.log("CHECK → OLD:", oldVersion, "NEW:", newVersion)
+
+            if(newVersion !== oldVersion){
+                showUpdateBanner(newVersion)
+            }
+
+        }catch(err){
+            console.log("Version check failed", err)
+        }
+
+    }, 5000)
+}
+let updateShown = false
+
+function showUpdateBanner(newVersion){
+
+    if(updateShown) return
+    updateShown = true
+
+    let oldVersion = localStorage.getItem("appVersion")
+
+    let confirmUpdate = confirm(
+        `New version available.\n\nCurrent: ${oldVersion}\nNew: ${newVersion}\n\nClick OK to update.`
+    )
+
+    if(confirmUpdate){
+        localStorage.setItem("appVersion", newVersion)
+        window.onbeforeunload = null
+        location.reload(true)
+    }
+}  
+async function openCamera(surface, room){
+
+    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+
+        try{
+            let stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+  facingMode: "environment",
+  aspectRatio: 16/9
+}
+            })
+
+            let overlay = document.createElement("div")
+            overlay.style.position = "fixed"
+            overlay.style.top = 0
+            overlay.style.left = 0
+            overlay.style.width = "100%"
+            overlay.style.height = "100%"
+            overlay.style.background = "#000"
+            overlay.style.zIndex = 9999
+
+            overlay.innerHTML = `
+             <video autoplay playsinline 
+style="
+width:100%;
+height:100%;
+object-fit:cover;
+"></video>
+                <div style="position:fixed;bottom:20px;width:100%;text-align:center;">
+                    <button id="captureBtn">Capture</button>
+                    <button id="closeCam">Close</button>
+                </div>
+            `
+
+            document.body.appendChild(overlay)
+            isCameraOpen = true
+
+            // 🔥 PUSH STATE
+            history.pushState({ camera: true }, "")
+
+            let video = overlay.querySelector("video")
+            video.srcObject = stream
+
+            overlay.querySelector("#captureBtn").onclick = () => {
+
+          let canvas = document.createElement("canvas")
+let videoRatio = video.videoWidth / video.videoHeight
+let screenRatio = window.innerWidth / window.innerHeight
+
+let sx, sy, sw, sh
+
+if(videoRatio > screenRatio){
+    // video wider → crop sides
+    sh = video.videoHeight
+    sw = sh * screenRatio
+    sx = (video.videoWidth - sw) / 2
+    sy = 0
+}else{
+    // video taller → crop top/bottom
+    sw = video.videoWidth
+    sh = sw / screenRatio
+    sx = 0
+    sy = (video.videoHeight - sh) / 2
+}
+
+canvas.width = sw
+canvas.height = sh     
+
+                let ctx = canvas.getContext("2d")
+ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
+
+                let img = canvas.toDataURL("image/jpeg", 0.7)
+
+                stream.getTracks().forEach(t => t.stop())
+                document.body.removeChild(overlay)
+
+                openEditorDirect(img, surface, room)
+            }
+
+           overlay.querySelector("#closeCam").onclick = () => {
+    stream.getTracks().forEach(t => t.stop())
+    document.body.removeChild(overlay)
+
+    isCameraOpen = false
+
+    // 🔥 FIX BACK STACK
+
+}
+
+            return
+
+        }
+      
+catch(e){
+    console.log("Camera fallback", e)
+
+    // 🔥 FORCE FILE INPUT (iOS SAFE)
     let input = document.createElement("input")
     input.type = "file"
     input.accept = "image/*"
-    input.capture = "environment"   // mobile camera
+    input.capture = "environment"
+
+    input.onchange = function(e){
+        let file = e.target.files[0]
+        if(file){
+            processImage(file, surface, room)
+        }
+    }
+
+    input.click()
+    return
+}
+     
+    }
+
+    // fallback
+    let input = document.createElement("input")
+    input.type = "file"
+    input.accept = "image/*"
+    input.capture = "environment"
 
     input.onchange = function(e){
         let file = e.target.files[0]
@@ -1292,55 +1737,138 @@ photoSection.style.display = "block"
 }
 function resetData(){
 
-if(confirm("This will delete all data including photos. Continue?")){
+if(!confirm("This will delete all data including photos. Continue?")){
+    return
+}
 
-    let req = indexedDB.deleteDatabase("SiteValidatorDB")
+// 🔥 SHOW LOADER (DO NOT DESTROY UI)
+let loader = document.createElement("div")
+loader.innerHTML = "Resetting app..."
+loader.style.position = "fixed"
+loader.style.top = "0"
+loader.style.left = "0"
+loader.style.width = "100%"
+loader.style.height = "100%"
+loader.style.background = "rgba(0,0,0,0.7)"
+loader.style.color = "white"
+loader.style.display = "flex"
+loader.style.alignItems = "center"
+loader.style.justifyContent = "center"
+loader.style.zIndex = "9999"
 
-    req.onsuccess = ()=>{
+document.body.appendChild(loader)
 
-        localStorage.removeItem("validatorData")
-        localStorage.removeItem("dbSizeMB")
+// 🔥 CLOSE DB FIRST (CRITICAL)
+if(db){
+    db.close()
+}
 
-        // ✅ FULL RESET
-        data = {}
-      
-    }
+// 🔥 DELETE DB
+let req = indexedDB.deleteDatabase("SiteValidatorDB")
+
+req.onsuccess = ()=>{
+    localStorage.clear()
+    location.reload()
+}
+
+req.onerror = ()=>{
+    alert("Reset failed. Retrying fallback...")
+
+    localStorage.clear()
+    location.reload()
+}
+
+req.onblocked = ()=>{
+    alert("Close other tabs of this app and retry")
+
+    document.body.removeChild(loader)
 }
 }
 async function downloadAllImages(){
 
-for(let room in data.rooms){
+    let zip = new JSZip()
 
-let r = data.rooms[room]
+    // 🔥 FILE NAME
+    let pid = data.project?.pid || "PID"
+    let cx = data.project?.cx || "Cx"
 
-for(let surface in r.photos){
+    pid = pid.replace(/[^a-zA-Z0-9]/g, "_")
+    cx = cx.replace(/[^a-zA-Z0-9]/g, "_")
 
-let photos = r.photos[surface] || []
+    let zipName = `${pid}_${cx}_photos.zip`
 
-for(let i=0;i<photos.length;i++){
+    // 🔥 COUNT TOTAL IMAGES
+    let total = 0
+    for(let room in data.rooms){
+        for(let surface in data.rooms[room].photos){
+            total += (data.rooms[room].photos[surface] || []).length
+        }
+    }
 
-let id = photos[i]
+    let processed = 0
 
-let src = await getPhotoFromDB(id)
+    // 🔥 SHOW LOADER
+    let loader = document.getElementById("zipLoader")
+    let text = document.getElementById("zipText")
 
-if(!src) continue
+    loader.style.display = "flex"
+    text.innerText = `Zipping images: 0 / ${total}`
 
-let a = document.createElement("a")
-a.href = src
-a.download = `${room}_${surface}_${i+1}.jpg`
+    for(let room in data.rooms){
 
-document.body.appendChild(a)
-a.click()
-document.body.removeChild(a)
+      let cleanRoom = room.replace(/[^a-zA-Z0-9]/g, "_")
+      let roomFolder = zip.folder(cleanRoom)
+        let r = data.rooms[room]
 
+        for(let surface in r.photos){
+
+            let photos = r.photos[surface] || []
+
+            for(let i=0;i<photos.length;i++){
+
+                let id = photos[i]
+
+                let src = await getPhotoFromDB(id)
+                if(!src) continue
+
+                let blob = await fetch(src).then(res => res.blob())
+
+                let cleanRoom = room.replace(/[^a-zA-Z0-9]/g, "_")
+let fileName = `${cleanRoom}_${surface}_${i+1}.jpg`
+
+                roomFolder.file(fileName, blob)
+
+                // 🔥 UPDATE PROGRESS
+                processed++
+                text.innerText = `Zipping images: ${processed} / ${total}`
+            }
+        }
+    }
+
+    text.innerText = "Finalizing ZIP..."
+
+    let content = await zip.generateAsync({type:"blob"})
+
+    let url = URL.createObjectURL(content)
+
+if(/iPhone|iPad|iPod/i.test(navigator.userAgent)){
+    alert("On iPhone: tap Share → Save to Files to download")
+    window.open(url)
+}else{
+    let a = document.createElement("a")
+    a.href = url
+    a.download = zipName
+    a.click()
 }
-}
-}
 
-alert("All images downloaded ✅")
-data.validationMeta.imagesDownloaded = true
-saveData()
-renderAppSections()
+    // 🔥 HIDE LOADER
+    loader.style.display = "none"
+
+    alert("Images downloaded successfully ✅")
+
+    data.validationMeta.imagesDownloaded = true
+    saveData()
+    renderAppSections()
 }
 
 window.onbeforeunload = function () {
@@ -1348,15 +1876,28 @@ window.onbeforeunload = function () {
         return "Validation in progress. Are you sure?"
     }
 }
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js")
+      .then(reg => console.log("SW registered"))
+      .catch(err => console.log("SW failed", err));
+  });
+}
+
+ 
 
 document.addEventListener("DOMContentLoaded", async ()=>{
 
+startVersionWatcher()
 await initDB()
+// 🔥 iOS SAFE HISTORY INIT
+setTimeout(()=>{
+    history.pushState(null, "")
+}, 500)
+// ✅ LOAD FROM DB
+let stored = await loadAppData()
 
-let stored = localStorage.getItem("validatorData")
-
-// ✅ HANDLE CORRUPT / EMPTY CASE
-if(!stored || stored === "null" || stored === "undefined"){
+if(!stored){
 
     data = {
         validationMeta: {
@@ -1367,23 +1908,14 @@ if(!stored || stored === "null" || stored === "undefined"){
         },
         rooms: {}
     }
-    ensureValidationMeta()
-    normalizeData()
 
-    document.getElementById("validationApp").style.display = "none"
-    document.getElementById("startValidationBtn").style.display = "block"
-// 🔥 CLEAR UI PROPERLY
-document.getElementById("roomForm").innerHTML = ""
-document.getElementById("roomTabs").innerHTML = ""
-document.getElementById("societyForm").innerHTML = ""
-    return
+}else{
+    data = stored
 }
-
-// ✅ EXISTING SESSION
-data = JSON.parse(stored)
+roomOrder = data.roomOrder || [...defaultRooms]
 ensureValidationMeta()
-
 normalizeData()
+populateProjectDetails()
 
 if(data.validationMeta?.started){
 
@@ -1392,32 +1924,109 @@ if(data.validationMeta?.started){
     renderTabs(roomOrder[0])
     openRoom(roomOrder[0])
 
-} else {
+}else{
 
-    // 🔥 FORCE CLEAN UI STATE
     document.getElementById("validationApp").style.display = "none"
     document.getElementById("startValidationBtn").style.display = "block"
 
-    // 🔥 CLEAR ANY RENDERED CONTENT
     document.getElementById("roomForm").innerHTML = ""
     document.getElementById("roomTabs").innerHTML = ""
     document.getElementById("societyForm").innerHTML = ""
-
 }
 
-  
-window.addEventListener("message", function(event){
-if(event.data.type==="ANNOTATION_SAVE"){
-saveAnnotated(
-event.data.room,
-event.data.surface,
-event.data.index,
-event.data.data
-)
+})
+window.addEventListener("popstate", function(event){
+
+    if(isCameraOpen){
+        return
+    }
+
+    if(document.querySelector("#editorCanvas")){
+        return
+    }
+
+    if(data.validationMeta?.started){
+
+        let now = Date.now()
+
+        if(now - backPressTime < 1500){
+            window.onbeforeunload = null
+            history.back()
+        }else{
+            alert("Press back again to exit app")
+            backPressTime = now
+            history.pushState(null, "")
+        }
+    }
+})
+ 
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+
+    try{
+
+        const reg = await navigator.serviceWorker.register("sw.js")
+
+        console.log("SW registered")
+
+        // 🔥 FORCE CHECK FOR UPDATE (VERY IMPORTANT)
+        reg.update()
+
+        // 🔥 LISTEN FOR NEW VERSION
+        reg.onupdatefound = () => {
+
+            const newWorker = reg.installing
+
+            newWorker.onstatechange = () => {
+
+                if (newWorker.state === "activated") {
+                    console.log("New SW activated → reloading")
+
+                    // 🔥 FORCE HARD RELOAD
+                    window.location.reload()
+                }
+            }
+        }
+
+    }catch(err){
+        console.log("SW failed", err)
+    }
+
+  });
 }
-})
-})
+ 
 </script>
-
+<div id="zipLoader" style="
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.7);
+color:white;
+display:none;
+align-items:center;
+justify-content:center;
+z-index:9999;
+font-size:18px;
+text-align:center;
+">
+<span id="zipText">Preparing...</span>
+</div>
+<div id="updateBanner" style="
+position:fixed;
+bottom:0;
+left:0;
+width:100%;
+background:#1e3d8f;
+color:white;
+padding:12px;
+text-align:center;
+display:none;
+z-index:9999;
+cursor:pointer;
+">
+New version available. Tap to update.
+</div>  
 </body>
 </html>
