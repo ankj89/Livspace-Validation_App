@@ -116,7 +116,16 @@ button{padding:8px 12px;border:none;background:#1e3d8f;color:white;border-radius
 <input id="address" placeholder="Address" onchange="saveData()">
 <input id="society" placeholder="Society Name" onchange="saveData()">
 <input id="flat" placeholder="Flat No" onchange="saveData()">
-<input id="floorNo" placeholder="Floor No" onchange="saveData()">
+<input 
+  id="floorNo" 
+  type="number"
+  placeholder="Enter Floor No (in number)" 
+  onchange="saveData()"
+  oninput="this.value = this.value.replace(/[^0-9]/g,'')"
+  inputmode="numeric"
+  min="0"
+  step="1"
+>
 <button id="startValidationBtn" onclick="startValidation()">Start Validation</button>
 </div>
 </div>
@@ -218,7 +227,8 @@ const measurementFields = [
 
 /* CEILING UTILITIES */
 {label:"Beam Bottom to Floor (mm)", key:"beamFloor"},
-{label:"Sprinkler Head to Floor (mm)", key:"sprinklerFloor"},
+{label:"Sprinkler Head to Floor (if multiple heads, take from the lowest positioned) (mm)", key:"sprinklerFloor"},
+{label:"Other utility(ex :HVAC,VRV,plumbing lines) Bottom to Floor (mm)", key:"utilityFloor"},
 
 /* SOFFIT (WALL-WISE) */
 
@@ -234,7 +244,7 @@ const questionConfig = {
     room: [
         "Existing flooring in good condition with appropriate slope/levels?",
         "Is existing skirting flushed?",   
-        "In case of room extesnion is there a requirement to level the floors?Ex : balcony extensions",
+        "In case of room extension is there a requirement to level the floors?Ex : balcony extensions",
         "Are there visible undulations or uneven surface on the true ceiling?Take photo with annotation",
         "Is there any evidence of water leaks or moisture damage on the existing true ceiling?Take photo with annotation",
         "Are there any issues with the existing false ceiling that require removal and replacement?",
