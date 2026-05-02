@@ -2305,90 +2305,112 @@ req.onblocked = ()=>{
 }
 async function downloadAllImages(){
 
-    let zip = new JSZip()
+    try{
 
-    // 🔥 FILE NAME
-    let pid = data.project?.pid || "PID"
-    let cx = data.project?.cx || "Cx"
+        // =========================
+        // 1. BUILD ZIP
+        // =========================
 
-    pid = pid.replace(/[^a-zA-Z0-9]/g, "_")
-    cx = cx.replace(/[^a-zA-Z0-9]/g, "_")
+        let zip = new JSZip()
 
-    let zipName = `${pid}_${cx}_photos.zip`
+        let pid = (data.project?.pid || "PID").replace(/[^a-zA-Z0-9]/g, "_")
+        let cx = (data.project?.cx || "Cx").replace(/[^a-zA-Z0-9]/g, "_")
 
-    // 🔥 COUNT TOTAL IMAGES
-    let total = 0
-    for(let room in data.rooms){
-        for(let surface in data.rooms[room].photos){
-            total += (data.rooms[room].photos[surface] || []).length
-        }
-    }
+        let zipName = `${pid}_${cx}_photos.zip`
 
-    let processed = 0
+        let total = 0
 
-    // 🔥 SHOW LOADER
-    let loader = document.getElementById("zipLoader")
-    let text = document.getElementById("zipText")
-
-    loader.style.display = "flex"
-    text.innerText = `Zipping images: 0 / ${total}`
-
-    for(let room in data.rooms){
-
-      let cleanRoom = room.replace(/[^a-zA-Z0-9]/g, "_")
-      let roomFolder = zip.folder(cleanRoom)
-        let r = data.rooms[room]
-
-        for(let surface in r.photos){
-
-            let photos = r.photos[surface] || []
-
-            for(let i=0;i<photos.length;i++){
-
-                let id = photos[i]
-
-                let src = await getPhotoFromDB(id)
-                if(!src) continue
-
-                let blob = await fetch(src).then(res => res.blob())
-
-                let cleanRoom = room.replace(/[^a-zA-Z0-9]/g, "_")
-let fileName = `${cleanRoom}_${surface}_${i+1}.jpg`
-
-                roomFolder.file(fileName, blob)
-
-                // 🔥 UPDATE PROGRESS
-                processed++
-                text.innerText = `Zipping images: ${processed} / ${total}`
+        for(let room in data.rooms){
+            for(let surface in data.rooms[room].photos){
+                total += (data.rooms[room].photos[surface] || []).length
             }
         }
+
+        if(total === 0){
+            alert("No images available")
+            return
+        }
+
+        for(let room in data.rooms){
+
+            let cleanRoom = room.replace(/[^a-zA-Z0-9]/g, "_")
+            let folder = zip.folder(cleanRoom)
+
+            for(let surface in data.rooms[room].photos){
+
+                let photos = data.rooms[room].photos[surface] || []
+
+                for(let i=0;i<photos.length;i++){
+
+                    let id = photos[i]
+                    let src = await getPhotoFromDB(id)
+
+                    if(!src) continue
+
+                    let blob = await fetch(src).then(r => r.blob())
+
+                    folder.file(`${cleanRoom}_${surface}_${i+1}.jpg`, blob)
+                }
+            }
+        }
+
+        let zipBlob = await zip.generateAsync({ type: "blob" })
+
+        // 🔥 Convert to File (important)
+        let file = new File([zipBlob], zipName, { type: "application/zip" })
+
+
+        // =========================
+        // 2. EXPORT STRATEGY (PRIORITY ORDER)
+        // =========================
+
+        // ✅ METHOD 1 — Native Share (MOST RELIABLE across iOS + Android)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+
+            await navigator.share({
+                files: [file],
+                title: zipName
+            })
+
+            return
+        }
+
+
+        // ✅ METHOD 2 — Direct Download (Desktop + Android Chrome)
+        if ("download" in document.createElement("a")) {
+
+            let url = URL.createObjectURL(zipBlob)
+
+            let a = document.createElement("a")
+            a.href = url
+            a.download = zipName
+
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+
+            setTimeout(()=>URL.revokeObjectURL(url), 3000)
+
+            return
+        }
+
+
+        // ✅ METHOD 3 — Open File for Manual Save (iOS fallback)
+        let url = URL.createObjectURL(zipBlob)
+
+        window.open(url, "_blank")
+
+        alert("Tap Share → Save to Files to store the ZIP")
+
     }
+    catch(err){
 
-    text.innerText = "Finalizing ZIP..."
+        console.error(err)
 
-    let content = await zip.generateAsync({type:"blob"})
-
-    let url = URL.createObjectURL(content)
-
-if(/iPhone|iPad|iPod/i.test(navigator.userAgent)){
-    alert("On iPhone: tap Share → Save to Files to download")
-    window.open(url)
-}else{
-    let a = document.createElement("a")
-    a.href = url
-    a.download = zipName
-    a.click()
+        alert("Export failed. Please retry.")
+    }
 }
 
-    // 🔥 HIDE LOADER
-    loader.style.display = "none"
-
-    alert("Images downloaded successfully ✅")
-
-    data.validationMeta.imagesDownloaded = true
-    saveData()
-    renderAppSections()
-}
 
 window.onbeforeunload = function () {
     if(data.validationMeta?.started){
