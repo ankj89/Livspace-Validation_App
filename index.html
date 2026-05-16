@@ -1485,16 +1485,6 @@ measurementFields.forEach(f=>{
 row[f.key] = m[f.key] || ""
 })
 
-// 🔥 ADD ELEVATION BASED MEASUREMENTS
-
-let elevations = data.rooms[room].elevations || []
-
-elevations.forEach(e=>{
-row[`${e}_M`] = m[`${e}_M`] || ""
-row[`${e}_U`] = m[`${e}_U`] || ""
-row[`doorsoffit_${e}`] = m[`doorsoffit_${e}`] || ""
-row[`winSoffit_${e}`] = m[`winSoffit_${e}`] || ""
-}) 
 
 measureRows.push(row)
 
